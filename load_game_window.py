@@ -7,7 +7,7 @@ import numpy as np
 WINDOW_COLOR_MIN = np.array([37, 25, 18], dtype="uint8")
 WINDOW_COLOR_MAX = np.array([58, 38, 29], dtype="uint8")
 
-def loadGameWindow(screenshot_path):
+def load_game_window(screenshot_path):
     """From the given screenshot, produce OpenCV image containing the game window."""
     img = cv2.imread(screenshot_path, cv2.IMREAD_COLOR)
     mask = cv2.inRange(img, WINDOW_COLOR_MIN, WINDOW_COLOR_MAX)
