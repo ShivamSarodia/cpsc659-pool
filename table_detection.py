@@ -4,6 +4,8 @@ import math
 import cv2
 import numpy as np
 
+from load_game_window import load_game_window
+
 class TableDetector:
     def __init__(self):
         self.img = None
@@ -29,7 +31,7 @@ class TableDetector:
             __log_error("Image file not found")
             return
         self.image_path = image_path
-        self.img = cv2.imread(image_path, cv2.IMREAD_COLOR)
+        self.img = load_game_window(self.image_path)
 
     def __line_non_max_suppression(self, lines, max_size):
         '''
@@ -116,7 +118,7 @@ class TableDetector:
 
 def main():
     td = TableDetector()
-    td.load_image("sample_table.png")
+    td.load_image("sample_screenshot.png")
     td.detect_table_edges()()
 
 if __name__ == '__main__':
