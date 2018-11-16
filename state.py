@@ -12,6 +12,9 @@ class PoolState:
         # List of Boundary objects for the table boundaries.
         self.boundaries = []
 
+        # The radius in pixels of each ball
+        self.ball_radius = None
+
         # Position of the white ball
         self.white_pos = None
 
