@@ -2,6 +2,7 @@ import os
 import sys
 import math
 import cv2
+import cv2.cv as cv
 import numpy as np
 
 from load_game_window import load_game_window
@@ -15,7 +16,7 @@ class TableDetector:
         self.pockets = None
         self.balls = None
         self.tableSurfaceColorRange = (np.array([150, 110, 0], dtype="uint8"), np.array([205, 205, 90], dtype="uint8"))
-        self.tableColorRange = (np.array([235, 155, 0], dtype="uint8"), np.array([255, 210, 0], dtype="uint8"))
+        self.tableColorRange = (np.array([195, 150, 0], dtype="uint8"), np.array([255, 210, 25], dtype="uint8"))
         self.pocketColorRange = (np.array([0, 0, 0], dtype="uint8"), np.array([0, 0, 40], dtype="uint8"))
         self.nms_rho_tol = 50
         self.nms_theta_tol = np.pi/180.0 * 30.0
@@ -34,8 +35,8 @@ class TableDetector:
             __log_error("Image file not found")
             return
         self.image_path = image_path
-        self.img = load_game_window(self.image_path)
-        # self.img = cv2.imread(self.image_path, cv2.IMREAD_COLOR)
+        # self.img = load_game_window(self.image_path)
+        self.img = cv2.imread(self.image_path, cv2.IMREAD_COLOR)
 
     def __line_non_max_suppression(self, lines, max_size):
         '''
@@ -146,8 +147,18 @@ class TableDetector:
         table_crop = self.img[
             self.tableCorners['tl'][1]:self.tableCorners['bl'][1],
             self.tableCorners['tl'][0]:self.tableCorners['tr'][0]].copy()
-        mask_lower = 255 - cv2.inRange(table_crop, self.tableSurfaceColorRange[0], self.tableSurfaceColorRange[1])
-        self.__display_image_internal(mask_lower)
+        mask_lower = cv2.bitwise_and(table_crop, table_crop, mask=255 - cv2.inRange(table_crop, self.tableSurfaceColorRange[0], self.tableSurfaceColorRange[1]))
+        # self.__display_image_internal(mask_lower)
+        cimg = cv2.cvtColor(mask_lower, cv2.COLOR_RGB2GRAY)
+        circles = cv2.HoughCircles(cimg, cv.CV_HOUGH_GRADIENT, 1.0, minDist=6, param1=25, param2=10, minRadius=6, maxRadius=10)
+        image_copy = np.copy(table_crop)
+        circles = np.uint16(np.around(circles))
+        for i in circles[0,:]:
+            # draw the outer circle
+            cv2.circle(image_copy,(i[0],i[1]),i[2],(0,255,0),2)
+            # draw the center of the circle
+            cv2.circle(image_copy,(i[0],i[1]),2,(0,0,255),3)
+        self.__display_image_internal(image_copy)
 
 
     def display_table_detections(self):
@@ -194,7 +205,7 @@ class TableDetector:
 
 def main():
     td = TableDetector()
-    td.load_image("sample_screenshot.png")
+    td.load_image("sample_table_high_res.png")
     td.detect_table_edges()
     td.detect_pockets()
     td.detect_balls()

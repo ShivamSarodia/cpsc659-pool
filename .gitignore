@@ -102,3 +102,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+train_augmented/*
+train_augmented_labels.npy
+training_data/*
