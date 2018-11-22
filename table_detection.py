@@ -2,7 +2,6 @@ import os
 import sys
 import math
 import cv2
-import cv2.cv as cv
 import numpy as np
 
 from load_game_window import load_game_window
@@ -150,7 +149,7 @@ class TableDetector:
         mask_lower = cv2.bitwise_and(table_crop, table_crop, mask=255 - cv2.inRange(table_crop, self.tableSurfaceColorRange[0], self.tableSurfaceColorRange[1]))
         # self.__display_image_internal(mask_lower)
         cimg = cv2.cvtColor(mask_lower, cv2.COLOR_RGB2GRAY)
-        circles = cv2.HoughCircles(cimg, cv.CV_HOUGH_GRADIENT, 1.0, minDist=6, param1=25, param2=10, minRadius=6, maxRadius=10)
+        circles = cv2.HoughCircles(cimg, cv2.HOUGH_GRADIENT, 1.0, minDist=6, param1=25, param2=10, minRadius=6, maxRadius=10)
         image_copy = np.copy(table_crop)
         circles = np.uint16(np.around(circles))
         for i in circles[0,:]:
