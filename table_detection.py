@@ -221,6 +221,9 @@ class TableDetector:
                                 minDist=17,
                                 param1=15,
                                 param2=10,
+
+                                # 15 is less accurate ball positioning, but less likely to miss a ball
+                                # 16 is more accurate ball position, but as a higher chance of missing a ball
                                 minRadius=15,
                                 maxRadius=19)
         self.tentative_balls = circles[0]
@@ -267,7 +270,7 @@ def main():
     td.detect_table_edges()
     td.detect_pockets()
     td.detect_balls()
-    td.produce_classification_data()
+    td.display_table_detections()
 
 if __name__ == '__main__':
     main()
