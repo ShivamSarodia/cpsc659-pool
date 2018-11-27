@@ -1,6 +1,8 @@
 import os
 import sys
 import math
+import random
+
 import cv2
 import numpy as np
 # from ball_inference import BallClassifier
@@ -9,20 +11,45 @@ from load_game_window import load_game_window
 
 class TableDetector:
     def __init__(self):
-        self.img = None
+        # Path of the image loaded into the table detector.
         self.imagePath = None
-        # self.tableEdges = None
-        self.tableCorners = None
-        self.pockets = None
-        self.balls = None
-        self.ballCropRadius = 9
 
-        # 162, 61, 54
+        # OpenCV image loaded into the table detector.
+        self.img = None
+
+        # OpenCV image of the game window
+        self.gameWindow = None
+
+        # The top-left coordinate of the game window relative to the entire original image
+        self.gameWindowTopLeft = None, None
+        
+        # The corners of the table as a dictionary of the form {"tl": (x, y), "br": (x, y), ...}.
+        # Coordinates are relative to game window.
+        self.tableCorners = None
+
+        # The original image cropped to include only the table surface.
+        self.tableCrop = None
+
+        # The top-left coordinate of table crop relative to the entire original image.
+        self.tableCropTopLeft = None, None
+
+        # The location of the table pockets. Coordinates are relative to cropped table.
+        self.pockets = None
+
+        # List of (x, y, r) coordinate pairs for detected circles. These are mostly balls, but may also be false positives.
+        # Coordinates are relative to cropped table.
+        self.tentative_balls = None
+
+        self.balls = None
+
+        # Color ranges used for detection.
         self.tableSurfaceColorRange = (np.array([150, 110, 0], dtype="uint8"), np.array([205, 205, 90], dtype="uint8"))
         self.tableWoodColorRange = (np.array([45, 49, 150], dtype="uint8"), np.array([66, 73, 175], dtype="uint8"))
         self.tableColorRange = (np.array([195, 150, 65], dtype="uint8"), np.array([255, 210, 75], dtype="uint8"))
-        
         self.pocketColorRange = (np.array([0, 0, 0], dtype="uint8"), np.array([0, 0, 40], dtype="uint8"))
+        self.windowColorRange = (np.array([37, 25, 18], dtype="uint8"), np.array([58, 38, 29], dtype="uint8"))
+
+        # Misc parameters
         self.nms_rho_tol = 50
         self.nms_theta_tol = np.pi/180.0 * 30.0
         self.eps = 0.1
@@ -41,8 +68,15 @@ class TableDetector:
             __log_error("Image file not found")
             return
         self.image_path = image_path
-        # self.img = load_game_window(self.image_path)
         self.img = cv2.imread(self.image_path, cv2.IMREAD_COLOR)
+
+    def detect_game_window(self):        
+        mask = cv2.inRange(self.img, self.windowColorRange[0], self.windowColorRange[1])
+        _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        main_contour = max(contours, key=cv2.contourArea)
+        x, y, w, h = cv2.boundingRect(main_contour)
+        self.gameWindow = self.img[y:y+h, x:x+w]
+        self.gameWindowTopLeft = y, x
 
     def __line_non_max_suppression(self, lines, max_size):
         '''
@@ -97,14 +131,13 @@ class TableDetector:
 
         return sorted_corners
 
-
     def detect_pockets(self):
         '''
         Detect the table pockets. Four of the positions are already known,
         so only need to detect the 2 middle pockets
         '''
 
-        mask = cv2.inRange(self.img, self.pocketColorRange[0], self.pocketColorRange[1])
+        mask = cv2.inRange(self.gameWindow, self.pocketColorRange[0], self.pocketColorRange[1])
         params = cv2.SimpleBlobDetector_Params()
 
         params.filterByArea = True
@@ -127,25 +160,17 @@ class TableDetector:
                 filtered_keypoints.append((int(keypoint.pt[0]), int(keypoint.pt[1])))
 
         filtered_keypoints.sort()
-        self.pockets = dict(self.tableCorners)
-        self.pockets['ml'] = filtered_keypoints[0]
-        self.pockets['mr'] = filtered_keypoints[1]
 
-    # for l in lines:
-    #     rho, theta = l[0]
+        self.pockets = {}
 
-    #     # https://docs.opencrv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_houghlines/py_houghlines.html
-    #     a = np.cos(theta)
-    #     b = np.sin(theta)
-    #     x0 = a*rho
-    #     y0 = b*rho
-    #     x1 = int(x0 + 1000*(-b))
-    #     y1 = int(y0 + 1000*(a))
-    #     x2 = int(x0 - 1000*(-b))
-    #     y2 = int(y0 - 1000*(a))
+        # Four pockets are at the corners
+        for lab in self.tableCorners:
+            self.pockets[lab] = (self.tableCorners[lab][0] - self.tableCorners["tl"][0], 
+                                 self.tableCorners[lab][1] - self.tableCorners["tl"][1])
 
-    #     cv2.line(image_copy,(x1,y1),(x2,y2),(0,0,255),2)
-    # self.__display_image_internal(image_copy)
+        # Middle pockets are projections onto the corresponding table edge.
+        self.pockets['ml'] = (0, filtered_keypoints[0][1] - self.tableCorners["tl"][1])
+        self.pockets['mr'] = (self.pockets["tr"][0], filtered_keypoints[1][1] - self.tableCorners["tl"][1])
 
     def _detect_corners(self, img, color_range):
         mask = cv2.inRange(img, color_range[0], color_range[1])
@@ -168,31 +193,29 @@ class TableDetector:
             __log_error("No image loaded")
             return
         
-        wood_corners = self._detect_corners(self.img, self.tableWoodColorRange)
+        wood_corners = self._detect_corners(self.gameWindow, self.tableWoodColorRange)
         
         y1 = wood_corners["tl"][0] + 30
         x1 = wood_corners["tl"][1] + 30
         y2 = wood_corners["br"][0] - 30
         x2 = wood_corners["br"][1] - 30
 
-        wood_img = self.img[x1:x2,y1:y2,...]
+        wood_img = self.gameWindow[x1:x2,y1:y2,...]
         temp_corners = self._detect_corners(wood_img, self.tableColorRange)
 
         self.tableCorners = {}
         for corner_name in temp_corners:
             self.tableCorners[corner_name] = (temp_corners[corner_name][0] + y1, 
                                               temp_corners[corner_name][1] + x1)
-        
 
-    def detect_balls(self):
-        table_crop = self.img[
+        self.tableCrop = self.gameWindow[
             self.tableCorners['tl'][1]:self.tableCorners['bl'][1],
             self.tableCorners['tl'][0]:self.tableCorners['tr'][0]].copy()
-        # mask_lower = cv2.bitwise_and(table_crop, table_crop, mask=255 - cv2.inRange(table_crop, self.tableSurfaceColorRange[0], self.tableSurfaceColorRange[1]))
-        # self.__display_image_internal(mask_lower)
-        # cimg = cv2.cvtColor(mask_lower, cv2.COLOR_RGB2GRAY)
+        self.tableCropTopLeft = (self.tableCorners['tl'][1] + self.gameWindowTopLeft[0],
+                                 self.tableCorners['tl'][0] + self.gameWindowTopLeft[1])
 
-        hsv = cv2.cvtColor(table_crop, cv2.COLOR_BGR2HSV)
+    def detect_balls(self):
+        hsv = cv2.cvtColor(self.tableCrop, cv2.COLOR_BGR2HSV)
         hues = hsv[:,:,0].copy()
         circles = cv2.HoughCircles(hues, cv2.HOUGH_GRADIENT, 1,
                                 minDist=17,
@@ -200,53 +223,18 @@ class TableDetector:
                                 param2=10,
                                 minRadius=15,
                                 maxRadius=19)
-        image_copy = np.copy(table_crop)
-        circles = np.uint16(np.around(circles))
-
-        colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0)]
-        for i in circles[0,:]:
-            # draw the outer circle
-            # print(i[1]-self.ballCropRadius, i[1]+1+self.ballCropRadius, i[0]-self.ballCropRadius, i[0]+1+self.ballCropRadius)
-            # print(image_copy.shape)
-            # ball_crop = image_copy[i[1]-self.ballCropRadius:i[1]+1+self.ballCropRadius, i[0]-self.ballCropRadius:i[0]+1+self.ballCropRadius, ...]
-            # pred = self.bc.classify_ball(ball_crop)
-            # if not pred == 2:
-            cv2.circle(image_copy,(i[0],i[1]),i[2],(0,255,0),2)
-            # draw the center of the circle
-            cv2.circle(image_copy,(i[0],i[1]),2,(0,0,255),3)
-        self.__display_image_internal(image_copy)
-
+        self.tentative_balls = circles[0]
 
     def display_table_detections(self):
-        image_copy = np.copy(self.img)
-        if self.tableCorners:
-            tl = self.tableCorners['tl']
-            bl = self.tableCorners['bl']
-            tr = self.tableCorners['tr']
-            br = self.tableCorners['br']
-
-            cv2.line(image_copy, tl, tr, (0, 0, 255), 2)
-            cv2.line(image_copy, tl, bl, (0, 0, 255), 2)
-            cv2.line(image_copy, tr, br, (0, 0, 255), 2)
-            cv2.line(image_copy, bl, br, (0, 0, 255), 2)
-
-        # if self.tableEdges:
-        #     for rho,theta in self.tableEdges:
-        #         # https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_houghlines/py_houghlines.html
-        #         a = np.cos(theta)
-        #         b = np.sin(theta)
-        #         x0 = a*rho
-        #         y0 = b*rho
-        #         x1 = int(x0 + 1000*(-b))
-        #         y1 = int(y0 + 1000*(a))
-        #         x2 = int(x0 - 1000*(-b))
-        #         y2 = int(y0 - 1000*(a))
-        
-        #         cv2.line(image_copy,(x1,y1),(x2,y2),(0,0,255),2)
+        image_copy = np.copy(self.tableCrop)
 
         if self.pockets:
             for pocket in self.pockets:
-                cv2.circle(image_copy, self.pockets[pocket], 10, (0, 255, 0))
+                cv2.circle(image_copy, self.pockets[pocket], 10, (0, 255, 0), thickness=-1)
+
+        if self.tentative_balls is not None:
+            for x, y, r in self.tentative_balls:
+                cv2.circle(image_copy, (int(x), int(y)), int(r), (0, 255, 0))
 
         self.__display_image_internal(image_copy, title="Table detections")
 
@@ -258,13 +246,28 @@ class TableDetector:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
+    def produce_classification_data(self):
+        image_copy = np.copy(self.img)
+        for x, y, r in self.tentative_balls:
+            mask = np.zeros((self.img.shape[0], self.img.shape[1]), np.uint8)
+
+            circle_x = int(x + self.tableCropTopLeft[1])
+            circle_y = int(y + self.tableCropTopLeft[0])
+            circle_r = int(r)
+            cv2.circle(mask, (circle_x, circle_y), circle_r, (255, 255, 255), thickness=-1)
+
+            masked_img = cv2.bitwise_and(self.img, self.img, mask=mask)
+            ball_img = masked_img[circle_y - circle_r:circle_y + circle_r, circle_x - circle_r:circle_x + circle_r]
+            cv2.imwrite("ball_imgs/" + str(random.randint(0, 1e10)) + ".png", ball_img)
 
 def main():
     td = TableDetector()
-    td.load_image("screen_crop.png")
+    td.load_image("screen2.png")
+    td.detect_game_window()
     td.detect_table_edges()
     td.detect_pockets()
     td.detect_balls()
+    td.produce_classification_data()
 
 if __name__ == '__main__':
     main()
