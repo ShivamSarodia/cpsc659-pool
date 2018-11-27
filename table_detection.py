@@ -7,8 +7,6 @@ import cv2
 import numpy as np
 # from ball_inference import BallClassifier
 
-from load_game_window import load_game_window
-
 class TableDetector:
     def __init__(self):
         # Path of the image loaded into the table detector.
