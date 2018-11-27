@@ -117,7 +117,6 @@ class TableDetector:
         return [(x0, y0)]
 
     def __sort_corners(self, corner_list):
-        print(corner_list)
         assert len(corner_list) == 4
 
         sorted_corners = {}
@@ -269,12 +268,6 @@ def main():
     td.detect_pockets()
     td.detect_balls()
     td.display_table_detections()
-    # td.produce_classification_data()
-
-    print(td.tableCorners["br"], td.tableCropTopLeft)
-
-    # import GameController from controller
-    # controller = GameController(self.tableCorners["br"])
 
 
 if __name__ == '__main__':
