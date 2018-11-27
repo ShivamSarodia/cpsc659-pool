@@ -74,7 +74,7 @@ class TableDetector:
         main_contour = max(contours, key=cv2.contourArea)
         x, y, w, h = cv2.boundingRect(main_contour)
         self.gameWindow = self.img[y:y+h, x:x+w]
-        self.gameWindowTopLeft = y, x
+        self.gameWindowTopLeft = x, y
 
     def __line_non_max_suppression(self, lines, max_size):
         '''
@@ -209,8 +209,8 @@ class TableDetector:
         self.tableCrop = self.gameWindow[
             self.tableCorners['tl'][1]:self.tableCorners['bl'][1],
             self.tableCorners['tl'][0]:self.tableCorners['tr'][0]].copy()
-        self.tableCropTopLeft = (self.tableCorners['tl'][1] + self.gameWindowTopLeft[0],
-                                 self.tableCorners['tl'][0] + self.gameWindowTopLeft[1])
+        self.tableCropTopLeft = (self.tableCorners['tl'][0] + self.gameWindowTopLeft[0],
+                                 self.tableCorners['tl'][1] + self.gameWindowTopLeft[1])
 
     def detect_balls(self):
         hsv = cv2.cvtColor(self.tableCrop, cv2.COLOR_BGR2HSV)
@@ -263,12 +263,19 @@ class TableDetector:
 
 def main():
     td = TableDetector()
-    td.load_image("screen2.png")
+    td.load_image("screenshots/screen_1022506300.png")
     td.detect_game_window()
     td.detect_table_edges()
     td.detect_pockets()
     td.detect_balls()
     td.display_table_detections()
+    # td.produce_classification_data()
+
+    print(td.tableCorners["br"], td.tableCropTopLeft)
+
+    # import GameController from controller
+    # controller = GameController(self.tableCorners["br"])
+
 
 if __name__ == '__main__':
     main()
