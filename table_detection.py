@@ -4,6 +4,7 @@ import math
 import cv2
 import cv2.cv as cv
 import numpy as np
+from ball_inference import BallClassifier
 
 from load_game_window import load_game_window
 
@@ -15,12 +16,14 @@ class TableDetector:
         self.tableCorners = None
         self.pockets = None
         self.balls = None
+        self.ballCropRadius = 9
         self.tableSurfaceColorRange = (np.array([150, 110, 0], dtype="uint8"), np.array([205, 205, 90], dtype="uint8"))
         self.tableColorRange = (np.array([195, 150, 0], dtype="uint8"), np.array([255, 210, 25], dtype="uint8"))
         self.pocketColorRange = (np.array([0, 0, 0], dtype="uint8"), np.array([0, 0, 40], dtype="uint8"))
         self.nms_rho_tol = 50
         self.nms_theta_tol = np.pi/180.0 * 30.0
         self.eps = 0.1
+        self.bc = BallClassifier('ball_classification_norm_params.joblib', 'ball_gbm.joblib')
 
     def __log_error(self, error_str):
         raise Exception("TableDetector: " + error_str)
@@ -153,11 +156,18 @@ class TableDetector:
         circles = cv2.HoughCircles(cimg, cv.CV_HOUGH_GRADIENT, 1.0, minDist=6, param1=25, param2=10, minRadius=6, maxRadius=10)
         image_copy = np.copy(table_crop)
         circles = np.uint16(np.around(circles))
+
+        colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0)]
         for i in circles[0,:]:
             # draw the outer circle
-            cv2.circle(image_copy,(i[0],i[1]),i[2],(0,255,0),2)
-            # draw the center of the circle
-            cv2.circle(image_copy,(i[0],i[1]),2,(0,0,255),3)
+            # print(i[1]-self.ballCropRadius, i[1]+1+self.ballCropRadius, i[0]-self.ballCropRadius, i[0]+1+self.ballCropRadius)
+            # print(image_copy.shape)
+            ball_crop = image_copy[i[1]-self.ballCropRadius:i[1]+1+self.ballCropRadius, i[0]-self.ballCropRadius:i[0]+1+self.ballCropRadius, ...]
+            pred = self.bc.classify_ball(ball_crop)
+            if not pred == 2:
+                cv2.circle(image_copy,(i[0],i[1]),i[2],colors[pred],2)
+                # draw the center of the circle
+                cv2.circle(image_copy,(i[0],i[1]),2,(0,0,255),3)
         self.__display_image_internal(image_copy)
 
 
@@ -205,7 +215,7 @@ class TableDetector:
 
 def main():
     td = TableDetector()
-    td.load_image("sample_table_high_res.png")
+    td.load_image("sample_table_2.png")
     td.detect_table_edges()
     td.detect_pockets()
     td.detect_balls()

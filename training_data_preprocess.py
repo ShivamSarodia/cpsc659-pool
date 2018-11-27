@@ -10,10 +10,10 @@ labels = []
 def augment_data(img_path, out_dir, dims, idx, label):
     global labels
     im = Image.open(img_path)
+    im = im.resize(dims)
     labels.append((str(4*(idx-1)+1).rjust(3, '0'), label))
     im.save(out_dir + '/' + str(4*(idx-1)+1).rjust(3, '0') + '.png')
 
-    im = im.resize(dims)
     for i, rot in enumerate([90, 180, 270]):
         labels.append((str(4*(idx-1)+i+2).rjust(3, '0'), label))
         newim = im.rotate(rot)

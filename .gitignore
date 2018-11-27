@@ -106,3 +106,5 @@ venv.bak/
 train_augmented/*
 train_augmented_labels.npy
 training_data/*
+testing_data/*
+*.joblib
