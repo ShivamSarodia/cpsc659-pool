@@ -11,10 +11,7 @@ screenshot.save(screenshot_name)
 
 td = TableDetector()
 td.load_image(screenshot_name)
-td.detect_game_window()
-td.detect_table_edges()
-td.detect_pockets()
-td.detect_balls()
+td.detect_all()
 
 td.display_table_detections()
 td.produce_classification_data()

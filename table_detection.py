@@ -261,8 +261,8 @@ class TableDetector:
         for x, y, r in self.tentative_balls:
             mask = np.zeros((self.img.shape[0], self.img.shape[1]), np.uint8)
 
-            circle_x = int(x + self.tableCropTopLeft[1])
-            circle_y = int(y + self.tableCropTopLeft[0])
+            circle_x = int(x + self.tableCropTopLeft[0])
+            circle_y = int(y + self.tableCropTopLeft[1])
             circle_r = int(r)
             cv2.circle(mask, (circle_x, circle_y), circle_r, (255, 255, 255), thickness=-1)
 

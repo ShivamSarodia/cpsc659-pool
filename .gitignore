@@ -110,4 +110,7 @@ train_augmented_labels_old.npy
 training_data_sorted/*
 training_data/*
 testing_data/*
+ball_imgs/*
+classify_imgs/*
+screenshots/*
 *.joblib

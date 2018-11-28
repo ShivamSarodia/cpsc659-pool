@@ -23,12 +23,12 @@ def main():
     image_dirs = ['ball_imgs/solids/', 'ball_imgs/stripes/']#, 'training_data/none/']
     image_aug_dirs = ['training_data_sorted/solids/', 'training_data_sorted/stripes/']#, 'training_data_sorted/none/']
 
-    # file_cnt = 0
-    # for i, dir in enumerate(image_dirs):
-    #     for filename in os.listdir(dir):
-    #         file_cnt += 1
-    #         im = Image.open(dir + filename)
-    #         im.save(image_aug_dirs[i] + str(file_cnt).rjust(3, '0') + '.png')
+    file_cnt = 0
+    for i, dir in enumerate(image_dirs):
+        for filename in os.listdir(dir):
+            file_cnt += 1
+            im = Image.open(dir + filename)
+            im.save(image_aug_dirs[i] + str(file_cnt).rjust(3, '0') + '.png')
 
     for i, dir in enumerate(image_aug_dirs):
         for filename in os.listdir(dir):
