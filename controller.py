@@ -4,7 +4,7 @@ import random
 import time
 
 class GameController:
-    def __init__(self, table_size, crop_offset):
+    def __init__(self, table_size, crop_offset, cue_coords):
         # Size of the table image in pixels as (width, height)
         self.table_size = table_size
 
@@ -12,11 +12,9 @@ class GameController:
         self.crop_offset = crop_offset
 
         # Coordinates of the cue ball, relative to the table image.
-        self.cue_coords = None, None
-    
-    def set_cue_coords(self, coords):
-        self.cue_coords = coords
+        self.cue_coords = cue_coords
 
+    @staticmethod
     def get_screen_image(self, dir="screenshots/"):
         """Return filename of a PNG containing current screen contents."""
         screenshot_name = dir + "/screenshot_" + random.randint(0, 1e10) + ".png"
