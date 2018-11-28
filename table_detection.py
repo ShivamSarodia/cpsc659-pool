@@ -31,6 +31,9 @@ class TableDetector:
         # The top-left coordinate of table crop relative to the entire original image.
         self.tableCropTopLeft = None, None
 
+        # Size of tableCrop in pixels as (width, height)
+        self.tableSize = None, None
+
         # The location of the table pockets. Coordinates are relative to cropped table.
         self.pockets = None
 
@@ -210,6 +213,7 @@ class TableDetector:
             self.tableCorners['tl'][0]:self.tableCorners['tr'][0]].copy()
         self.tableCropTopLeft = (self.tableCorners['tl'][0] + self.gameWindowTopLeft[0],
                                  self.tableCorners['tl'][1] + self.gameWindowTopLeft[1])
+        self.tableSize = self.tableCrop.shape[1], self.tableCrop.shape[0]
 
     def detect_balls(self):
         hsv = cv2.cvtColor(self.tableCrop, cv2.COLOR_BGR2HSV)
