@@ -250,6 +250,12 @@ class TableDetector:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
+    def detect_all(self):
+        self.detect_game_window()
+        self.detect_table_edges()
+        self.detect_pockets()
+        self.detect_balls()
+
     def produce_classification_data(self):
         image_copy = np.copy(self.img)
         for x, y, r in self.tentative_balls:
@@ -267,10 +273,8 @@ class TableDetector:
 def main():
     td = TableDetector()
     td.load_image("screenshots/screen_1022506300.png")
-    td.detect_game_window()
-    td.detect_table_edges()
-    td.detect_pockets()
-    td.detect_balls()
+    td.detect_all()
+
     td.display_table_detections()
 
 
