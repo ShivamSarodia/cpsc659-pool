@@ -2,7 +2,6 @@ import os
 import sys
 import math
 import cv2
-import cv2.cv as cv
 from PIL import Image
 import numpy as np
 import mahotas
@@ -82,16 +81,16 @@ def modelfit(alg, train_input, train_target, val_input, val_target, performCV=Tr
     #    cv_score = cross_validation.cross_val_score(alg, train_input, train_target, cv=cv_folds, scoring='roc_auc')
 
     #Print model report:
-    print "\nModel Report"
-    print "Train Accuracy : %.4g" % metrics.accuracy_score(train_target, dtrain_predictions)
-    print "Validation Accuracy : %.4g" % metrics.accuracy_score(val_target, val_predictions)
+    print("\nModel Report")
+    print("Train Accuracy : %.4g" % metrics.accuracy_score(train_target, dtrain_predictions))
+    print("Validation Accuracy : %.4g" % metrics.accuracy_score(val_target, val_predictions))
     # print "AUC Score (Train): %f" % metrics.roc_auc_score(train_target, dtrain_predprob)
 
     #if performCV:
     #    print "CV Score : Mean - %.7g | Std - %.7g | Min - %.7g | Max - %.7g" % (np.mean(cv_score),np.std(cv_score),np.min(cv_score),np.max(cv_score))
 
 def split_train_test(input, target, train_percent=0.8):
-    indices = range(input.shape[0])
+    indices = list(range(input.shape[0]))
     np.random.shuffle(indices)
     num_train = int(input.shape[0]*train_percent)
     train_indices = indices[:num_train]
@@ -104,7 +103,7 @@ def main():
     labels = np.load('train_augmented_labels.npy')
     images = []
     for str_label, label in labels:
-        im_path = 'train_augmented/' + str_label + '.png'
+        im_path = 'train_augmented/' + str_label.decode('UTF-8') + '.png'
         im = Image.open(im_path)#.convert('L')
         images.append(np.array(im)[...,:3])
         im.close()

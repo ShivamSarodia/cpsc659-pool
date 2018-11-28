@@ -54,7 +54,7 @@ class TableDetector:
         self.nms_rho_tol = 50
         self.nms_theta_tol = np.pi/180.0 * 30.0
         self.eps = 0.1
-        # self.bc = BallClassifier('ball_classification_norm_params.joblib', 'ball_gbm.joblib')
+        self.bc = BallClassifier('ball_classification_norm_params.joblib', 'ball_classification_gbm.joblib')
 
     def __log_error(self, error_str):
         raise Exception("TableDetector: " + error_str)
@@ -236,9 +236,24 @@ class TableDetector:
             for pocket in self.pockets:
                 cv2.circle(image_copy, self.pockets[pocket], 10, (0, 255, 0), thickness=-1)
 
+        ball_colors = [(255, 0, 0), (0, 255, 0)]
         if self.tentative_balls is not None:
             for x, y, r in self.tentative_balls:
-                cv2.circle(image_copy, (int(x), int(y)), int(r), (0, 255, 0))
+                mask = np.zeros((self.img.shape[0], self.img.shape[1]), np.uint8)
+
+                circle_x = int(x + self.tableCropTopLeft[1])
+                circle_y = int(y + self.tableCropTopLeft[0])
+                circle_r = int(r)
+                cv2.circle(mask, (circle_x, circle_y), circle_r, (255, 255, 255), thickness=-1)
+
+                masked_img = cv2.bitwise_and(self.img, self.img, mask=mask)
+                ball_img = masked_img[circle_y - circle_r:circle_y + circle_r, circle_x - circle_r:circle_x + circle_r]
+                print(circle_x, circle_y, circle_r)
+                print(ball_img.shape)
+
+                if ball_img.shape[0] > 0 and ball_img.shape[1] > 0:
+                    pred = self.bc.classify_ball(cv2.resize(ball_img, (34, 34)))
+                    cv2.circle(image_copy, (int(x), int(y)), int(r), ball_colors[pred])
 
         self.__display_image_internal(image_copy, title="Table detections")
 
