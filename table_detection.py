@@ -5,7 +5,7 @@ import random
 
 import cv2
 import numpy as np
-# from ball_inference import BallClassifier
+from ball_inference import BallClassifier
 
 class TableDetector:
     def __init__(self):
@@ -20,7 +20,7 @@ class TableDetector:
 
         # The top-left coordinate of the game window relative to the entire original image
         self.gameWindowTopLeft = None, None
-        
+
         # The corners of the table as a dictionary of the form {"tl": (x, y), "br": (x, y), ...}.
         # Coordinates are relative to game window.
         self.tableCorners = None
@@ -68,7 +68,7 @@ class TableDetector:
         self.image_path = image_path
         self.img = cv2.imread(self.image_path, cv2.IMREAD_COLOR)
 
-    def detect_game_window(self):        
+    def detect_game_window(self):
         mask = cv2.inRange(self.img, self.windowColorRange[0], self.windowColorRange[1])
         _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         main_contour = max(contours, key=cv2.contourArea)
@@ -163,7 +163,7 @@ class TableDetector:
 
         # Four pockets are at the corners
         for lab in self.tableCorners:
-            self.pockets[lab] = (self.tableCorners[lab][0] - self.tableCorners["tl"][0], 
+            self.pockets[lab] = (self.tableCorners[lab][0] - self.tableCorners["tl"][0],
                                  self.tableCorners[lab][1] - self.tableCorners["tl"][1])
 
         # Middle pockets are projections onto the corresponding table edge.
@@ -190,9 +190,9 @@ class TableDetector:
         if self.image_path == None:
             __log_error("No image loaded")
             return
-        
+
         wood_corners = self._detect_corners(self.gameWindow, self.tableWoodColorRange)
-        
+
         y1 = wood_corners["tl"][0] + 30
         x1 = wood_corners["tl"][1] + 30
         y2 = wood_corners["br"][0] - 30
@@ -203,7 +203,7 @@ class TableDetector:
 
         self.tableCorners = {}
         for corner_name in temp_corners:
-            self.tableCorners[corner_name] = (temp_corners[corner_name][0] + y1, 
+            self.tableCorners[corner_name] = (temp_corners[corner_name][0] + y1,
                                               temp_corners[corner_name][1] + x1)
 
         self.tableCrop = self.gameWindow[

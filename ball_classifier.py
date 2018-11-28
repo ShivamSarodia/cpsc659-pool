@@ -100,7 +100,7 @@ def split_train_test(input, target, train_percent=0.8):
     return input[train_indices, :], target[train_indices], input[test_indices,:], target[test_indices]
 
 def main():
-    np.random.seed(10)
+    np.random.seed(101)
     labels = np.load('train_augmented_labels.npy')
     images = []
     for str_label, label in labels:
