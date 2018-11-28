@@ -37,11 +37,11 @@ class TableDetector:
         # The location of the table pockets. Coordinates are relative to cropped table.
         self.pockets = None
 
-        # List of (x, y, r) coordinate pairs for detected circles. These are mostly balls, but may also be false positives.
-        # Coordinates are relative to cropped table.
-        self.tentative_balls = None
+        # List of (x, y) coordinate pairs for detected balls. Coordinates are relative to cropped table.
+        self.balls = {"white": (None, None), "black": (None, None), "stripes": [], "solids": []}
 
-        self.balls = None
+        # The radius of the balls, in pixels.
+        self.ball_radius = None
 
         # Color ranges used for detection.
         self.tableSurfaceColorRange = (np.array([150, 110, 0], dtype="uint8"), np.array([205, 205, 90], dtype="uint8"))
@@ -218,6 +218,7 @@ class TableDetector:
     def detect_balls(self):
         hsv = cv2.cvtColor(self.tableCrop, cv2.COLOR_BGR2HSV)
         hues = hsv[:,:,0].copy()
+
         circles = cv2.HoughCircles(hues, cv2.HOUGH_GRADIENT, 1,
                                 minDist=17,
                                 param1=15,
@@ -227,7 +228,49 @@ class TableDetector:
                                 # 16 is more accurate ball position, but as a higher chance of missing a ball
                                 minRadius=15,
                                 maxRadius=19)
-        self.tentative_balls = circles[0]
+
+        full_hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
+        sats = full_hsv[:,:,1].copy()
+        
+        radii = []
+        for circle in circles[0]:
+            is_ball = self._classify_ball(*circle, sats)
+            if is_ball:
+                radii.append(circle[2])
+
+        self.ball_radius = np.max(radii)
+
+    def _classify_ball(self, x, y, r, sats):
+        """Given the coordinates of a ball, add it to the self.balls dictionary."""
+
+        mask = np.zeros((self.img.shape[0], self.img.shape[1]), np.uint8)
+        circle_x = int(x + self.tableCropTopLeft[0])
+        circle_y = int(y + self.tableCropTopLeft[1])
+        circle_r = int(r)
+        cv2.circle(mask, (circle_x, circle_y), circle_r, 1, thickness=-1)
+
+        masked_sats = cv2.bitwise_and(sats, sats, mask=mask)
+        mean_sat = np.sum(masked_sats) / np.sum(mask > 0)
+
+        if mean_sat < 5:
+            self.balls["black"] = (x, y)
+            return True
+        elif mean_sat < 35:
+            self.balls["white"] = (x, y)
+            return True
+
+        # TODO: classify between solids, stripes, and non-balls
+        is_solid = True
+        is_stripe = False
+
+        if is_solid:
+            self.balls["solids"].append((x, y))
+            return True
+        elif is_stripe:
+            self.balls["stripes"].append((x, y))
+            return True
+        else:
+            return False
 
     def display_table_detections(self):
         image_copy = np.copy(self.tableCrop)
@@ -236,9 +279,19 @@ class TableDetector:
             for pocket in self.pockets:
                 cv2.circle(image_copy, self.pockets[pocket], 10, (0, 255, 0), thickness=-1)
 
-        if self.tentative_balls is not None:
-            for x, y, r in self.tentative_balls:
-                cv2.circle(image_copy, (int(x), int(y)), int(r), (0, 255, 0))
+        if self.balls["white"]:
+            x, y = self.balls["white"]
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ball_radius), (0, 255, 0))
+
+        if self.balls["black"]:
+            x, y = self.balls["black"]
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ball_radius), (0, 0, 255))
+
+        for x, y in self.balls["stripes"]:
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ball_radius), (255, 0, 0))
+
+        for x, y in self.balls["solids"]:
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ball_radius), (255, 0, 255))
 
         self.__display_image_internal(image_copy, title="Table detections")
 
