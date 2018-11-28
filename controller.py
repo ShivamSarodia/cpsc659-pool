@@ -1,5 +1,6 @@
 import autopy
 import numpy as np
+import random
 import time
 
 class GameController:
@@ -15,6 +16,14 @@ class GameController:
     
     def set_cue_coords(self, coords):
         self.cue_coords = coords
+
+    def get_screen_image(self, dir="screenshots/"):
+        """Return filename of a PNG containing current screen contents."""
+        screenshot_name = dir + "/screenshot_" + random.randint(0, 1e10) + ".png"
+
+        screenshot = autopy.bitmap.capture_screen()
+        screenshot.save(screenshot_name)
+        return screenshot_name
 
     def drag_and_drop(self, start, end):
         start_x, start_y = start
