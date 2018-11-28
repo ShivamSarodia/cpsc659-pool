@@ -31,6 +31,9 @@ class TableDetector:
         # The top-left coordinate of table crop relative to the entire original image.
         self.tableCropTopLeft = None, None
 
+        # Size of tableCrop in pixels as (width, height)
+        self.tableSize = None, None
+
         # The location of the table pockets. Coordinates are relative to cropped table.
         self.pockets = None
 
@@ -74,7 +77,7 @@ class TableDetector:
         main_contour = max(contours, key=cv2.contourArea)
         x, y, w, h = cv2.boundingRect(main_contour)
         self.gameWindow = self.img[y:y+h, x:x+w]
-        self.gameWindowTopLeft = y, x
+        self.gameWindowTopLeft = x, y
 
     def __line_non_max_suppression(self, lines, max_size):
         '''
@@ -117,7 +120,6 @@ class TableDetector:
         return [(x0, y0)]
 
     def __sort_corners(self, corner_list):
-        print(corner_list)
         assert len(corner_list) == 4
 
         sorted_corners = {}
@@ -209,8 +211,9 @@ class TableDetector:
         self.tableCrop = self.gameWindow[
             self.tableCorners['tl'][1]:self.tableCorners['bl'][1],
             self.tableCorners['tl'][0]:self.tableCorners['tr'][0]].copy()
-        self.tableCropTopLeft = (self.tableCorners['tl'][1] + self.gameWindowTopLeft[0],
-                                 self.tableCorners['tl'][0] + self.gameWindowTopLeft[1])
+        self.tableCropTopLeft = (self.tableCorners['tl'][0] + self.gameWindowTopLeft[0],
+                                 self.tableCorners['tl'][1] + self.gameWindowTopLeft[1])
+        self.tableSize = self.tableCrop.shape[1], self.tableCrop.shape[0]
 
     def detect_balls(self):
         hsv = cv2.cvtColor(self.tableCrop, cv2.COLOR_BGR2HSV)
@@ -247,6 +250,12 @@ class TableDetector:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
+    def detect_all(self):
+        self.detect_game_window()
+        self.detect_table_edges()
+        self.detect_pockets()
+        self.detect_balls()
+
     def produce_classification_data(self):
         image_copy = np.copy(self.img)
         for x, y, r in self.tentative_balls:
@@ -263,12 +272,11 @@ class TableDetector:
 
 def main():
     td = TableDetector()
-    td.load_image("screen2.png")
-    td.detect_game_window()
-    td.detect_table_edges()
-    td.detect_pockets()
-    td.detect_balls()
+    td.load_image("screenshots/screen_1022506300.png")
+    td.detect_all()
+
     td.display_table_detections()
+
 
 if __name__ == '__main__':
     main()
