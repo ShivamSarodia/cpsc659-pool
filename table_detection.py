@@ -40,8 +40,11 @@ class TableDetector:
         # List of (x, y) coordinate pairs for detected balls. Coordinates are relative to cropped table.
         self.balls = {"white": (None, None), "black": (None, None), "stripes": [], "solids": []}
 
+        # List of the coordinates of all of the balls on the table.
+        self.allBalls = []
+
         # The radius of the balls, in pixels.
-        self.ball_radius = None
+        self.ballRadius = None
 
         # Color ranges used for detection.
         self.tableSurfaceColorRange = (np.array([150, 110, 0], dtype="uint8"), np.array([205, 205, 90], dtype="uint8"))
@@ -236,9 +239,10 @@ class TableDetector:
         for circle in circles[0]:
             is_ball = self._classify_ball(*circle, sats)
             if is_ball:
+                self.allBalls.append((circle[0], circle[1]))
                 radii.append(circle[2])
 
-        self.ball_radius = np.max(radii)
+        self.ballRadius = np.max(radii)
 
     def _classify_ball(self, x, y, r, sats):
         """Given the coordinates of a ball, add it to the self.balls dictionary."""
@@ -281,17 +285,17 @@ class TableDetector:
 
         if self.balls["white"]:
             x, y = self.balls["white"]
-            cv2.circle(image_copy, (int(x), int(y)), int(self.ball_radius), (0, 255, 0))
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 255, 0))
 
         if self.balls["black"]:
             x, y = self.balls["black"]
-            cv2.circle(image_copy, (int(x), int(y)), int(self.ball_radius), (0, 0, 255))
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 255))
 
         for x, y in self.balls["stripes"]:
-            cv2.circle(image_copy, (int(x), int(y)), int(self.ball_radius), (255, 0, 0))
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (255, 0, 0))
 
         for x, y in self.balls["solids"]:
-            cv2.circle(image_copy, (int(x), int(y)), int(self.ball_radius), (255, 0, 255))
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (255, 0, 255))
 
         self.__display_image_internal(image_copy, title="Table detections")
 

@@ -14,7 +14,7 @@ class Display():
             cv2.circle(self.img, (int(x), int(y)), int(r), (0, 255, 0))
 
     def add_circle(self, coords, radius=10, color=(0, 255, 0), thickness=1):
-        cv2.circle(self.img, coords, radius, color, thickness=thickness)
+        cv2.circle(self.img, (int(coords[0]), int(coords[1])), radius, color, thickness=thickness)
 
     def show(self):
         cv2.namedWindow('Image', cv2.WINDOW_NORMAL)

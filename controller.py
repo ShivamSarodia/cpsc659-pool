@@ -15,9 +15,9 @@ class GameController:
         self.cue_coords = cue_coords
 
     @staticmethod
-    def get_screen_image(self, dir="screenshots/"):
+    def get_screen_image(dir="screenshots/"):
         """Return filename of a PNG containing current screen contents."""
-        screenshot_name = dir + "/screenshot_" + random.randint(0, 1e10) + ".png"
+        screenshot_name = dir + "/screenshot_" + str(random.randint(0, 1e10)) + ".png"
 
         screenshot = autopy.bitmap.capture_screen()
         screenshot.save(screenshot_name)
