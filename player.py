@@ -59,7 +59,7 @@ class Player:
         
         Ignores the balls listed in `excepts`.
         """  
-        return self._clear_distance(start, end, excepts) > 2.2 * self.ball_radius
+        return self._clear_distance(start, end, excepts) > 2.1 * self.ball_radius
     
     def _get_shots(self):
         shots = []
@@ -92,7 +92,7 @@ class Player:
         v2 = pocket - target
         cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
-        if cos_angle > -0.3:
+        if cos_angle > -0.2:
             return None
 
         # Is path from cue to target clear?
