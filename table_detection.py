@@ -258,11 +258,11 @@ class TableDetector:
             for pocket in self.pockets:
                 cv2.circle(image_copy, self.pockets[pocket], 10, (0, 255, 0), thickness=-1)
 
-        if self.balls["white"]:
+        if "white" in self.balls:
             x, y = self.balls["white"]
             cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 255, 0))
 
-        if self.balls["black"]:
+        if "black" in self.balls:
             x, y = self.balls["black"]
             # cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 255))
 
