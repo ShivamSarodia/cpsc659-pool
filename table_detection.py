@@ -142,40 +142,13 @@ class TableDetector:
         Detect the table pockets. Four of the positions are already known,
         so only need to detect the 2 middle pockets
         '''
-
-        mask = cv2.inRange(self.gameWindow, self.pocketColorRange[0], self.pocketColorRange[1])
-        params = cv2.SimpleBlobDetector_Params()
-
-        params.filterByArea = True
-        params.maxArea = 10000
-
-        params.filterByCircularity = True
-        params.minCircularity = 0.5
-
-        detector = cv2.SimpleBlobDetector_create(params)
-        keypoints = detector.detect(255 - mask)
-        filtered_keypoints = []
-        for keypoint in keypoints:
-            if keypoint.pt[0] >= self.tableCorners['tl'][0]-20 and \
-                keypoint.pt[0] < self.tableCorners['br'][0]+20 and \
-                keypoint.pt[1] >= self.tableCorners['tl'][1] and \
-                keypoint.pt[1] < self.tableCorners['br'][1]:
-
-                # could modify this to add projections of points onto edges
-                # instead of the raw points themselves
-                filtered_keypoints.append((int(keypoint.pt[0]), int(keypoint.pt[1])))
-
-        filtered_keypoints.sort()
         self.pockets = {}
-
-        # Four pockets are at the corners
         for lab in self.tableCorners:
             self.pockets[lab] = (self.tableCorners[lab][0] - self.tableCorners["tl"][0],
                                  self.tableCorners[lab][1] - self.tableCorners["tl"][1])
 
-        # Middle pockets are projections onto the corresponding table edge.
-        self.pockets['ml'] = (0, filtered_keypoints[0][1] - self.tableCorners["tl"][1])
-        self.pockets['mr'] = (self.pockets["tr"][0], filtered_keypoints[1][1] - self.tableCorners["tl"][1])
+        self.pockets['ml'] = 0, int((self.pockets['tl'][1] + self.pockets['bl'][1]) / 2)
+        self.pockets['mr'] = self.tableSize[0], int((self.pockets['tr'][1] + self.pockets['br'][1]) / 2)
 
     def _detect_corners(self, img, color_range):
         mask = cv2.inRange(img, color_range[0], color_range[1])
