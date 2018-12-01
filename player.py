@@ -1,14 +1,20 @@
 import numpy as np
 
 class Player:
-    def __init__(self, table_size, pockets, balls, all_balls, ball_radius):
+    def __init__(self, table_size, pockets, balls, ball_radius):
         self.table_size = table_size
         self.pockets = pockets
         self.balls = balls
-        self.all_balls = all_balls
         self.ball_radius = ball_radius
 
         assert self.balls["white"] is not None
+        self.all_balls = self.balls["stripes"] + self.balls["solids"]
+        self.all_balls.append(self.balls["white"])
+        if "black" in self.balls:
+            self.all_balls.append(self.balls["black"])
+
+    def _is_same_ball(self, b1, b2):
+        return np.abs(b1[0] - b2[0]) + np.abs(b1[1] - b2[1]) < 1
 
     def _get_rotation(self, p1, p2):
         """Produce a rotation matrix such that the first coordinates of p1' and p2' are equal."""
@@ -35,7 +41,7 @@ class Player:
             # Skip balls that are very close to a ball in the excepts list.
             to_skip = False
             for b2 in excepts:
-                if np.abs(ball[0] - b2[0]) + np.abs(ball[1] - b2[1]) < 1:
+                if self._is_same_ball(ball, b2):
                     to_skip = True
             if to_skip:
                 continue
@@ -96,10 +102,27 @@ class Player:
         return Shot(target, pocket, -cos_angle, np.linalg.norm(pocket - ball))
 
     def get_shot(self):
+        if self._is_break():
+            print("Breaking...")
+            return self.table_size[0] / 2, 0
+
         shots = self._get_shots()
         shots.sort(key=lambda shot: -shot.cos_angle)
         return shots[0].target
 
+    def _is_break(self):
+        not_near = 0
+        for b1 in self.all_balls:
+            nearby = 0
+            for b2 in self.all_balls:
+                ball_dist = np.linalg.norm(np.array(b1) - np.array(b2))
+                if ball_dist < 2.5 * self.ball_radius:
+                    nearby += 1
+            if nearby < 2:
+                not_near += 1
+
+        # TODO: once none detection is implemented, reduce to 2.
+        return not_near < 3
 
 class Shot:
     def __init__(self, target, pocket, cos_angle, travel_dist):

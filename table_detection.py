@@ -37,11 +37,12 @@ class TableDetector:
         # The location of the table pockets. Coordinates are relative to cropped table.
         self.pockets = None
 
-        # List of (x, y) coordinate pairs for detected balls. Coordinates are relative to cropped table.
-        self.balls = {"white": (None, None), "black": (None, None), "stripes": [], "solids": []}
-
-        # List of the coordinates of all of the balls on the table.
-        self.allBalls = []
+        # Map of ball positions as (x, y) coordinate pairs. Coordinates are relative to cropped table.
+        #     "stripes" -> list of striped ball positions
+        #     "solids" -> list of solid ball positions
+        #     "white" -> white ball position, if detected
+        #     "black" -> black ball position, if detected
+        self.balls = {"stripes": [], "solids": []}
 
         # The radius of the balls, in pixels.
         self.ballRadius = None
@@ -214,7 +215,6 @@ class TableDetector:
         for circle in circles[0]:
             is_ball = self._classify_ball(*circle, sats)
             if is_ball:
-                self.allBalls.append((circle[0], circle[1]))
                 radii.append(circle[2])
 
         self.ballRadius = np.max(radii)
@@ -264,7 +264,7 @@ class TableDetector:
 
         if self.balls["black"]:
             x, y = self.balls["black"]
-            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 255))
+            # cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 255))
 
         for x, y in self.balls["stripes"]:
             cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (255, 0, 0))
