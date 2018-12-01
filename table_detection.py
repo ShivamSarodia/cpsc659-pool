@@ -5,7 +5,7 @@ import random
 
 import cv2
 import numpy as np
-from ball_inference import BallClassifier
+# from ball_inference import BallClassifier
 
 class TableDetector:
     def __init__(self):
@@ -79,6 +79,9 @@ class TableDetector:
         _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         main_contour = max(contours, key=cv2.contourArea)
         x, y, w, h = cv2.boundingRect(main_contour)
+        if w < 800 or h < 1500:
+            raise Exception("Could not detect game window.")
+
         self.gameWindow = self.img[y:y+h, x:x+w]
         self.gameWindowTopLeft = x, y
 
@@ -163,7 +166,6 @@ class TableDetector:
                 filtered_keypoints.append((int(keypoint.pt[0]), int(keypoint.pt[1])))
 
         filtered_keypoints.sort()
-
         self.pockets = {}
 
         # Four pockets are at the corners
