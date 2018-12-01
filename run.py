@@ -27,7 +27,7 @@ while True:
     target, force = player.get_move()
 
     # Create game controller
-    controller = GameController(td.table_size, td.tableCropTopLeft, None)
+    controller = GameController(td.table_size, td.tableCropTopLeft, td.balls)
     controller.make_shot((target, force)
     time.sleep(10)
 

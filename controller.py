@@ -34,9 +34,11 @@ class GameController:
 
         autopy.mouse.move(*adj_start)
         time.sleep(0.5)
+        autopy.mouse.click()
         autopy.mouse.toggle(None, True)
         autopy.mouse.smooth_move(*adj_end)
         autopy.mouse.toggle(None, False)
+        time.sleep(0.5)
 
     def _get_edge_intersections(self, target):
         slope = (target[1] - self.cue_coords[1]) / (target[0] - self.cue_coords[0])
