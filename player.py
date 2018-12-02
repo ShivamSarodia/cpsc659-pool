@@ -143,7 +143,7 @@ class Player:
 
         shots = self._get_shots()
         if shots:
-            return max(shots, key=lambda shot: shot.quality())
+            return max(shots, key=lambda shot: shot.quality()).target
         else:
             print("No shots available! Doing a Hail Mary.")
             return self.hail_mary()
