@@ -3,7 +3,7 @@ import numpy as np
 class Player:
     def __init__(self, table_size, pockets, balls, ball_radius):
         self.table_size = table_size
-        self.pockets = pockets
+        self.raw_pockets = pockets
         self.balls = balls
         self.ball_radius = ball_radius
 
@@ -12,6 +12,25 @@ class Player:
         self.all_balls.append(self.balls["white"])
         if "black" in self.balls:
             self.all_balls.append(self.balls["black"])
+
+        # For each pocket, define the target point to aim at in order to enter the pocket.
+        self.pocket_targets = dict(self.raw_pockets)
+        pocket_offset = self.ball_radius * 1.35
+        for l in ["tl", "tr", "bl", "br"]:
+            x, y = self.raw_pockets[l]
+            if x == 0:
+                x += pocket_offset
+            else:
+                x -= pocket_offset
+
+            if y == 0:
+                y += pocket_offset
+            else:
+                y -= pocket_offset
+            self.pocket_targets[l] = (x,y)
+
+        self.MIN_COS_ANGLE = -0.2
+        self.MAX_MID_POCKET_RATIO = 0.4
 
     def _is_same_ball(self, b1, b2):
         return np.abs(b1[0] - b2[0]) + np.abs(b1[1] - b2[1]) < 1
@@ -64,20 +83,26 @@ class Player:
     def _get_shots(self):
         shots = []
         for ball in self.balls["solids"]:
-            for pocket_lab in self.pockets:
-                shot = self._create_shot(ball, self.pockets[pocket_lab])
+            for l in self.pocket_targets:
+                shot = self._create_shot(ball, l)
                 if shot:
                     shots.append(shot)
         return shots
 
-    def _create_shot(self, ball, pocket):
+    def _create_shot(self, ball, pocket_label):
         """Create a shot to launch given ball into given pocket.
 
         If no such shot exists, return None.
         """
-        pocket = np.array(pocket)
+        pocket = np.array(self.pocket_targets[pocket_label])
         ball = np.array(ball)
         cue = np.array(self.balls["white"])
+
+        # If this is a middle pocket, is the ball in range of the pocket?
+        if pocket_label in {'ml', 'mr'}:
+            angle_ratio = np.abs(ball[1] - pocket[1]) / np.abs(ball[0] - pocket[0])
+            if angle_ratio > self.MAX_MID_POCKET_RATIO:
+                return None
 
         # Is path from ball to pocket clear?
         if not self._is_clear(ball, pocket, [cue, ball]):
@@ -92,7 +117,7 @@ class Player:
         v2 = pocket - target
         cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
-        if cos_angle > -0.2:
+        if cos_angle > self.MIN_COS_ANGLE:
             return None
 
         # Is path from cue to target clear?
