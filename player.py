@@ -89,6 +89,8 @@ class Player:
         shots = []
         if self.goal_color == "black":
             target_balls = [self.balls["black"]]
+        elif self.goal_color is None:
+            target_balls = self.balls["stripes"] + self.balls["solids"]
         else:
             target_balls = self.balls[self.goal_color]
 
@@ -134,19 +136,21 @@ class Player:
         if not self._is_clear(cue, target, [cue, ball]):
            return None
 
-        return Shot(target, pocket, -cos_angle, np.linalg.norm(pocket - ball))
+        return Shot(target, pocket, -cos_angle, np.linalg.norm(cue - target), np.linalg.norm(pocket - ball))
 
     def get_shot(self):
         if self._is_break():
             print("Breaking...")
-            return self.table_size[0] / 2, 0
+            return (self.table_size[0] / 2, 0), 1
 
         shots = self._get_shots()
         if shots:
-            return max(shots, key=lambda shot: shot.quality()).target
+            best_shot = max(shots, key=lambda shot: shot.quality())
+            total_dist = best_shot.white_dist + best_shot.target_dist
+            return best_shot.target, max(min(total_dist / (900 * best_shot.cos_angle), 1), 0.5)
         else:
             print("No shots available! Doing a Hail Mary.")
-            return self.hail_mary()
+            return self.hail_mary(), 0.7
 
     def hail_mary(self):
         """Aim directly at some ball of the correct color."""
@@ -173,11 +177,12 @@ class Player:
         return not_near < 2
 
 class Shot:
-    def __init__(self, target, pocket, cos_angle, travel_dist):
+    def __init__(self, target, pocket, cos_angle, white_dist, target_dist):
         self.target = target[0], target[1]
         self.pocket = pocket[0], pocket[1]
         self.cos_angle = cos_angle  # larger is better
-        self.travel_dist = travel_dist
+        self.white_dist = white_dist
+        self.target_dist = target_dist
 
     def quality(self):
-        return -self.travel_dist
+        return -(self.white_dist + self.target_dist)
