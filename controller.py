@@ -4,7 +4,7 @@ import random
 import time
 
 class GameController:
-    def __init__(self, table_size, crop_offset, cue_coords):
+    def __init__(self, table_size, crop_offset, balls, ball_radius):
         # Size of the table image in pixels as (width, height)
         self.table_size = table_size
 
@@ -12,7 +12,14 @@ class GameController:
         self.crop_offset = crop_offset
 
         # Coordinates of the cue ball, relative to the table image.
-        self.cue_coords = cue_coords
+        self.cue_coords = balls["white"]
+
+        # Coordinates of all balls other than the cue ball, relative to the table image.
+        self.other_balls = balls["solids"] + balls["stripes"]
+        if "black" in balls:
+            self.other_balls.append(balls["black"])
+
+        self.ball_radius = ball_radius
 
     @staticmethod
     def get_screen_image(dir="screenshots/"):
@@ -38,6 +45,12 @@ class GameController:
         autopy.mouse.toggle(None, True)
         autopy.mouse.smooth_move(*adj_end)
         autopy.mouse.toggle(None, False)
+        time.sleep(0.5)
+
+    def move_mouse(self, point):                   
+        autopy.mouse.move(
+            (point[0] + self.crop_offset[0]) / 2,
+            (point[1] + self.crop_offset[1]) / 2)
         time.sleep(0.5)
 
     def _get_edge_intersections(self, target):
@@ -95,3 +108,48 @@ class GameController:
         end = start[0] - x_diff, start[1] - y_diff
 
         self.drag_and_drop(start, end)
+
+    def find_stick_position(self, retry=200):
+        """Find a queue position for which the cue and guide do not obscure any balls."""
+
+        for _ in range(retry):
+            r = np.random.random()
+            if r < 0.25:
+                target = (0, self.table_size[1] * np.random.random())
+            elif r < 0.5:
+                target = (self.table_size[0], self.table_size[1] * np.random.random())
+            elif r < 0.75:
+                target = (self.table_size[0] * np.random.random(), 0)
+            else:
+                target = (self.table_size[0] * np.random.random(), self.table_size[1])
+            
+            if self._test_stick_position(target):
+                return target
+
+    def _test_stick_position(self, target):
+        """Test whether a given stick position would not obscure any balls."""
+
+        cue = np.array(self.cue_coords)
+        target = np.array(target)
+
+        # Get rotation matrix
+        delta = target - cue
+        l = np.linalg.norm(delta)
+        rotation = np.array([[delta[1] / l, -delta[0] / l], [delta[0] / l, delta[1] / l]])
+
+        rot_start = rotation.dot(target)
+        rot_end = rotation.dot(cue)
+
+        for ball in self.other_balls:
+            rot_ball = rotation.dot(np.array(ball))
+            dist = np.abs(rot_ball[0] - rot_start[0])
+            if dist < 2.1 * self.ball_radius:
+                return False
+
+        return True
+        
+
+
+
+        
+

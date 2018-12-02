@@ -1,11 +1,12 @@
 import numpy as np
 
 class Player:
-    def __init__(self, table_size, pockets, balls, ball_radius):
+    def __init__(self, table_size, pockets, balls, ball_radius, current_goal):
         self.table_size = table_size
         self.raw_pockets = pockets
         self.balls = balls
         self.ball_radius = ball_radius
+        self.current_goal = current_goal
 
         assert self.balls["white"] is not None
         self.all_balls = self.balls["stripes"] + self.balls["solids"]
@@ -33,7 +34,8 @@ class Player:
             self.pocket_targets[l] = (x,y)
 
         self.MIN_COS_ANGLE = -0.2
-        self.MAX_MID_POCKET_RATIO = 0.4
+        self.MAX_MID_POCKET_RATIO = 0.6
+        self.COLLISION_RANGE = 2.1
 
     def _is_same_ball(self, b1, b2):
         return np.abs(b1[0] - b2[0]) + np.abs(b1[1] - b2[1]) < 1
@@ -81,11 +83,16 @@ class Player:
         
         Ignores the balls listed in `excepts`.
         """  
-        return self._clear_distance(start, end, excepts) > 2.1 * self.ball_radius
+        return self._clear_distance(start, end, excepts) > self.COLLISION_RANGE * self.ball_radius
     
     def _get_shots(self):
         shots = []
-        for ball in self.balls["solids"]:
+        if self.current_goal == "black":
+            target_balls = [self.balls["black"]]
+        else:
+            target_balls = self.balls[self.current_goal]
+
+        for ball in target_balls:
             for l in self.pocket_targets:
                 shot = self._create_shot(ball, l)
                 if shot:
