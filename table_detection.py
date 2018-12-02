@@ -5,7 +5,7 @@ import random
 
 import cv2
 import numpy as np
-# from ball_inference import BallClassifier
+from ball_inference import BallClassifier
 
 class TableDetector:
     def __init__(self):
@@ -58,7 +58,7 @@ class TableDetector:
         self.nms_rho_tol = 50
         self.nms_theta_tol = np.pi/180.0 * 30.0
         self.eps = 0.1
-        # self.bc = BallClassifier('ball_classification_norm_params.joblib', 'ball_classification_gbm.joblib')
+        self.bc = BallClassifier('ball_classification_norm_params.joblib', 'ball_classification_gbm.joblib')
 
     def __log_error(self, error_str):
         raise Exception("TableDetector: " + error_str)
