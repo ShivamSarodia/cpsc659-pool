@@ -33,7 +33,7 @@ while True:
     td.remove_nondup_balls(prelim_td.balls)
 
     player = Player(td.tableSize, td.pockets, td.balls, td.ballRadius, args.color)
-    target, force = player.get_shot(), 1
+    target, force = player.get_shot()
 
     controller = GameController(td.tableSize, td.tableCropTopLeft, td.balls, td.ballRadius)
     controller.make_shot(target, force)
