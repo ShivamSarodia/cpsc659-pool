@@ -4,7 +4,7 @@ import random
 import time
 
 class GameController:
-    def __init__(self, table_size, crop_offset):
+    def __init__(self, table_size, crop_offset, cue_coords):
         # Size of the table image in pixels as (width, height)
         self.table_size = table_size
 
@@ -12,14 +12,12 @@ class GameController:
         self.crop_offset = crop_offset
 
         # Coordinates of the cue ball, relative to the table image.
-        self.cue_coords = None, None
-    
-    def set_cue_coords(self, coords):
-        self.cue_coords = coords
+        self.cue_coords = cue_coords
 
-    def get_screen_image(self, dir="screenshots/"):
+    @staticmethod
+    def get_screen_image(dir="screenshots/"):
         """Return filename of a PNG containing current screen contents."""
-        screenshot_name = dir + "/screenshot_" + random.randint(0, 1e10) + ".png"
+        screenshot_name = dir + "/screenshot_" + str(random.randint(0, 1e10)) + ".png"
 
         screenshot = autopy.bitmap.capture_screen()
         screenshot.save(screenshot_name)
@@ -35,10 +33,12 @@ class GameController:
                    (end_y + self.crop_offset[1]) / 2)
 
         autopy.mouse.move(*adj_start)
-        time.sleep(0.5)
+        time.sleep(1)
+        autopy.mouse.click()
         autopy.mouse.toggle(None, True)
         autopy.mouse.smooth_move(*adj_end)
         autopy.mouse.toggle(None, False)
+        time.sleep(0.5)
 
     def _get_edge_intersections(self, target):
         slope = (target[1] - self.cue_coords[1]) / (target[0] - self.cue_coords[0])

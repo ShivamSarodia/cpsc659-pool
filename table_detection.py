@@ -37,11 +37,15 @@ class TableDetector:
         # The location of the table pockets. Coordinates are relative to cropped table.
         self.pockets = None
 
-        # List of (x, y, r) coordinate pairs for detected circles. These are mostly balls, but may also be false positives.
-        # Coordinates are relative to cropped table.
-        self.tentative_balls = None
+        # Map of ball positions as (x, y) coordinate pairs. Coordinates are relative to cropped table.
+        #     "stripes" -> list of striped ball positions
+        #     "solids" -> list of solid ball positions
+        #     "white" -> white ball position, if detected
+        #     "black" -> black ball position, if detected
+        self.balls = {"stripes": [], "solids": []}
 
-        self.balls = None
+        # The radius of the balls, in pixels.
+        self.ballRadius = None
 
         # Color ranges used for detection.
         self.tableSurfaceColorRange = (np.array([150, 110, 0], dtype="uint8"), np.array([205, 205, 90], dtype="uint8"))
@@ -76,6 +80,9 @@ class TableDetector:
         _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         main_contour = max(contours, key=cv2.contourArea)
         x, y, w, h = cv2.boundingRect(main_contour)
+        if w < 800 or h < 1500:
+            raise Exception("Could not detect game window.")
+
         self.gameWindow = self.img[y:y+h, x:x+w]
         self.gameWindowTopLeft = x, y
 
@@ -136,41 +143,13 @@ class TableDetector:
         Detect the table pockets. Four of the positions are already known,
         so only need to detect the 2 middle pockets
         '''
-
-        mask = cv2.inRange(self.gameWindow, self.pocketColorRange[0], self.pocketColorRange[1])
-        params = cv2.SimpleBlobDetector_Params()
-
-        params.filterByArea = True
-        params.maxArea = 10000
-
-        params.filterByCircularity = True
-        params.minCircularity = 0.5
-
-        detector = cv2.SimpleBlobDetector_create(params)
-        keypoints = detector.detect(255 - mask)
-        filtered_keypoints = []
-        for keypoint in keypoints:
-            if keypoint.pt[0] >= self.tableCorners['tl'][0]-20 and \
-                keypoint.pt[0] < self.tableCorners['br'][0]+20 and \
-                keypoint.pt[1] >= self.tableCorners['tl'][1] and \
-                keypoint.pt[1] < self.tableCorners['br'][1]:
-
-                # could modify this to add projections of points onto edges
-                # instead of the raw points themselves
-                filtered_keypoints.append((int(keypoint.pt[0]), int(keypoint.pt[1])))
-
-        filtered_keypoints.sort()
-
         self.pockets = {}
-
-        # Four pockets are at the corners
         for lab in self.tableCorners:
             self.pockets[lab] = (self.tableCorners[lab][0] - self.tableCorners["tl"][0],
                                  self.tableCorners[lab][1] - self.tableCorners["tl"][1])
 
-        # Middle pockets are projections onto the corresponding table edge.
-        #self.pockets['ml'] = (0, filtered_keypoints[0][1] - self.tableCorners["tl"][1])
-        #self.pockets['mr'] = (self.pockets["tr"][0], filtered_keypoints[1][1] - self.tableCorners["tl"][1])
+        self.pockets['ml'] = 0, int((self.pockets['tl'][1] + self.pockets['bl'][1]) / 2)
+        self.pockets['mr'] = self.tableSize[0], int((self.pockets['tr'][1] + self.pockets['br'][1]) / 2)
 
     def _detect_corners(self, img, color_range):
         mask = cv2.inRange(img, color_range[0], color_range[1])
@@ -218,6 +197,7 @@ class TableDetector:
     def detect_balls(self):
         hsv = cv2.cvtColor(self.tableCrop, cv2.COLOR_BGR2HSV)
         hues = hsv[:,:,0].copy()
+
         circles = cv2.HoughCircles(hues, cv2.HOUGH_GRADIENT, 1,
                                 minDist=17,
                                 param1=15,
@@ -227,7 +207,50 @@ class TableDetector:
                                 # 16 is more accurate ball position, but as a higher chance of missing a ball
                                 minRadius=15,
                                 maxRadius=19)
-        self.tentative_balls = circles[0]
+
+        full_hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
+        sats = full_hsv[:,:,1].copy()
+
+        radii = []
+        for circle in circles[0]:
+            is_ball = self._classify_ball(*circle, sats)
+            if is_ball:
+                radii.append(circle[2])
+
+        self.ballRadius = np.max(radii)
+
+    def _classify_ball(self, x, y, r, sats):
+        """Given the coordinates of a ball, add it to the self.balls dictionary."""
+
+        mask = np.zeros((self.img.shape[0], self.img.shape[1]), np.uint8)
+        circle_x = int(x + self.tableCropTopLeft[0])
+        circle_y = int(y + self.tableCropTopLeft[1])
+        circle_r = int(r)
+        cv2.circle(mask, (circle_x, circle_y), circle_r, (255, 255, 255), thickness=-1)
+
+        masked_sats = cv2.bitwise_and(sats, sats, mask=mask)
+        mean_sat = np.sum(masked_sats) / np.sum(mask > 0)
+
+        if mean_sat < 5:
+            self.balls["black"] = (x, y)
+            return True
+        elif mean_sat < 35:
+            self.balls["white"] = (x, y)
+            return True
+
+        masked_img = cv2.bitwise_and(self.img, self.img, mask=mask)
+        ball_img = masked_img[circle_y - circle_r:circle_y + circle_r, circle_x - circle_r:circle_x + circle_r]
+
+        if ball_img.shape[0] > 0 and ball_img.shape[1] > 0:
+            pred = self.bc.classify_ball(cv2.resize(ball_img, (34, 34)))
+            if pred == 0:
+                self.balls["solids"].append((x, y))
+                return True
+            else:
+                self.balls["stripes"].append((x, y))
+                return True
+
+        return False
 
     def display_table_detections(self):
         image_copy = np.copy(self.tableCrop)
@@ -236,24 +259,19 @@ class TableDetector:
             for pocket in self.pockets:
                 cv2.circle(image_copy, self.pockets[pocket], 10, (0, 255, 0), thickness=-1)
 
-        ball_colors = [(255, 0, 0), (0, 255, 0)]
-        if self.tentative_balls is not None:
-            for x, y, r in self.tentative_balls:
-                mask = np.zeros((image_copy.shape[0], image_copy.shape[1]), np.uint8)
+        if "white" in self.balls:
+            x, y = self.balls["white"]
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 255, 0))
 
-                circle_x = int(x)
-                circle_y = int(y)
-                circle_r = int(r)
-                cv2.circle(mask, (circle_x, circle_y), circle_r, (255, 255, 255), thickness=-1)
+        if "black" in self.balls:
+            x, y = self.balls["black"]
+            # cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 255))
 
-                masked_img = cv2.bitwise_and(image_copy, image_copy, mask=mask)
-                ball_img = masked_img[circle_y - circle_r:circle_y + circle_r, circle_x - circle_r:circle_x + circle_r]
-                print(circle_x, circle_y, circle_r)
-                print(ball_img.shape)
+        for x, y in self.balls["stripes"]:
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (255, 0, 0))
 
-                if ball_img.shape[0] > 0 and ball_img.shape[1] > 0:
-                    pred = self.bc.classify_ball(cv2.resize(ball_img, (34, 34)))
-                    cv2.circle(image_copy, (int(x), int(y)), int(r), ball_colors[pred], thickness=2)
+        for x, y in self.balls["solids"]:
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (255, 0, 255))
 
         self.__display_image_internal(image_copy, title="Table detections")
 
@@ -276,8 +294,8 @@ class TableDetector:
         for x, y, r in self.tentative_balls:
             mask = np.zeros((self.img.shape[0], self.img.shape[1]), np.uint8)
 
-            circle_x = int(x + self.tableCropTopLeft[1])
-            circle_y = int(y + self.tableCropTopLeft[0])
+            circle_x = int(x + self.tableCropTopLeft[0])
+            circle_y = int(y + self.tableCropTopLeft[1])
             circle_r = int(r)
             cv2.circle(mask, (circle_x, circle_y), circle_r, (255, 255, 255), thickness=-1)
 

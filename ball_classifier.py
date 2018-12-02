@@ -234,7 +234,7 @@ def main():
     #train_input = train_input.reshape((train_input.shape[0], -1))
     #test_input = test_input.reshape((test_input.shape[0], -1))
 
-    gbm0 = GradientBoostingClassifier(n_estimators = 40, max_depth = 3, random_state=10)
+    gbm0 = GradientBoostingClassifier(n_estimators = 50, max_depth = 3, random_state=10)
     # svm_clf = SVC(kernel='poly', degree=4, gamma='auto')
     modelfit(gbm0, train_input, train_target, test_input, test_target, threshold_preds)
     # threshold_model_fit(train_input, train_target)
