@@ -274,14 +274,8 @@ class TableDetector:
         for circle in circles[0]:
             # White and black balls have already been detected.
             if "white" in self.balls and self._is_same_detection(circle, self.balls["white"]):
-                print("skipping white")
-                print(circle)
-                print(self.balls["white"])
                 continue
             if "black" in self.balls and self._is_same_detection(circle, self.balls["black"]):
-                print("skipping black")
-                print(circle)
-                print(self.balls["black"])
                 continue
 
             self._classify_ball(*circle)
@@ -375,7 +369,7 @@ class TableDetector:
 
 def main():
     td = TableDetector()
-    td.load_image("screenshots/screenshot_8604880758.png")
+    td.load_image("screenshots/screenshot_1591214887.png")
     td.detect_all()
     print(len(td.balls["stripes"]))
     print(len(td.balls["solids"]))

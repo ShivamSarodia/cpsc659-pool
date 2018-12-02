@@ -1,15 +1,16 @@
-import autopy
-import random
-import time
-import numpy as np
+import argparse
 import sys
+import time
 
 from table_detection import TableDetector
 from controller import GameController
 from display import Display
 from player import Player
 
-current_goal = sys.argv[1]
+parser = argparse.ArgumentParser()
+parser.add_argument('--color')
+parser.add_argument('--repeat', action='store_true')    
+args = parser.parse_args(sys.argv[1:])
 
 while True:
     # Get preliminary screenshot.
@@ -31,9 +32,13 @@ while True:
     td.detect_all()
     td.remove_nondup_balls(prelim_td.balls)
 
-    player = Player(td.tableSize, td.pockets, td.balls, td.ballRadius, current_goal)
+    player = Player(td.tableSize, td.pockets, td.balls, td.ballRadius, args.color)
     target, force = player.get_shot(), 1
 
     controller = GameController(td.tableSize, td.tableCropTopLeft, td.balls, td.ballRadius)
     controller.make_shot(target, force)
-    time.sleep(10)
+
+    if args.repeat:
+        time.sleep(10)
+    else:
+        break
