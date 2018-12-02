@@ -5,7 +5,7 @@ import random
 
 import cv2
 import numpy as np
-from ball_inference import BallClassifier
+# from ball_inference import BallClassifier
 
 class TableDetector:
     def __init__(self):
@@ -58,7 +58,7 @@ class TableDetector:
         self.nms_rho_tol = 50
         self.nms_theta_tol = np.pi/180.0 * 30.0
         self.eps = 0.1
-        self.bc = BallClassifier('ball_classification_norm_params.joblib', 'ball_classification_gbm.joblib')
+        # self.bc = BallClassifier('ball_classification_norm_params.joblib', 'ball_classification_gbm.joblib')
 
     def __log_error(self, error_str):
         raise Exception("TableDetector: " + error_str)
@@ -194,9 +194,38 @@ class TableDetector:
                                  self.tableCorners['tl'][1] + self.gameWindowTopLeft[1])
         self.tableSize = self.tableCrop.shape[1], self.tableCrop.shape[0]
 
+    def __detect_black_ball(self):
+        hsv = cv2.cvtColor(self.tableCrop, cv2.COLOR_BGR2HSV)
+        sats = hsv[:,:,1].copy()
+        vals = hsv[:,:,2].copy()
+
+        v_mask = cv2.inRange(vals, np.array([0]), np.array([230]))
+        s_mask = cv2.inRange(sats, np.array([0]), np.array([5]))
+
+        sat_mask = cv2.bitwise_and(s_mask, s_mask, mask=v_mask)
+        sat_mask = cv2.medianBlur(sat_mask, 5)
+
+        circles = cv2.HoughCircles(sat_mask, cv2.HOUGH_GRADIENT, 1,
+                                minDist=17,
+                                param1=15,
+                                param2=10,
+                                minRadius=14,
+                                maxRadius=19)
+
+        if not circles.size == 0:
+            print("Found black circle")
+            x = int(circles[0][0][0])
+            y = int(circles[0][0][1])
+
+            self.balls["black"] = (x, y)
+
     def detect_balls(self):
         hsv = cv2.cvtColor(self.tableCrop, cv2.COLOR_BGR2HSV)
         hues = hsv[:,:,0].copy()
+
+        self.__detect_black_ball()
+        # cv2.circle(self.tableCrop, (x, y), int(r), (0, 0, 255), thickness=2)
+        # sat_mask = cv2.drawKeypoints(sat_mask, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
         circles = cv2.HoughCircles(hues, cv2.HOUGH_GRADIENT, 1,
                                 minDist=17,
@@ -232,8 +261,9 @@ class TableDetector:
         mean_sat = np.sum(masked_sats) / np.sum(mask > 0)
 
         if mean_sat < 5:
-            self.balls["black"] = (x, y)
-            return True
+            # self.balls["black"] = (x, y)
+            # black ball already detected
+            return False
         elif mean_sat < 25:
             self.balls["white"] = (x, y)
             return True
@@ -303,7 +333,7 @@ class TableDetector:
 
 def main():
     td = TableDetector()
-    td.load_image("screenshots/screenshot_5903520954.png")
+    td.load_image("screenshots_new/screenshot_22435476.png")
     td.detect_all()
 
     td.display_table_detections()
