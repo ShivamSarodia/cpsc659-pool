@@ -2,13 +2,14 @@ import autopy
 import random
 import time
 import numpy as np
+import sys
 
 from table_detection import TableDetector
 from controller import GameController
 from display import Display
 from player import Player
 
-time.sleep(2)
+current_goal = sys.argv[1]
 
 while True:
     # Take a screenshot
@@ -19,16 +20,11 @@ while True:
     td.load_image(screenshot_name)
     td.detect_all()
 
-    if td.turnIsOver:
-        break
-
     # Create player to determine where to shoot
-    player = Player(td.tableSize, td.pockets, td.balls)
-    target, force = player.get_move()
+    player = Player(td.tableSize, td.pockets, td.balls, td.ballRadius, current_goal)
+    target, force = player.get_shot(), 1
 
     # Create game controller
-    controller = GameController(td.table_size, td.tableCropTopLeft, td.balls)
-    controller.make_shot((target, force)
+    controller = GameController(td.tableSize, td.tableCropTopLeft, td.balls["white"])
+    controller.make_shot(target, force)
     time.sleep(10)
-
-print("Turn over!")

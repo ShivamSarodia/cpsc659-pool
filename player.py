@@ -1,12 +1,12 @@
 import numpy as np
 
 class Player:
-    def __init__(self, table_size, pockets, balls, ball_radius, current_goal):
+    def __init__(self, table_size, pockets, balls, ball_radius, goal_color):
         self.table_size = table_size
         self.raw_pockets = pockets
         self.balls = balls
         self.ball_radius = ball_radius
-        self.current_goal = current_goal
+        self.goal_color = goal_color
 
         assert self.balls["white"] is not None
         self.all_balls = self.balls["stripes"] + self.balls["solids"]
@@ -87,10 +87,10 @@ class Player:
     
     def _get_shots(self):
         shots = []
-        if self.current_goal == "black":
+        if self.goal_color == "black":
             target_balls = [self.balls["black"]]
         else:
-            target_balls = self.balls[self.current_goal]
+            target_balls = self.balls[self.goal_color]
 
         for ball in target_balls:
             for l in self.pocket_targets:
@@ -142,8 +142,18 @@ class Player:
             return self.table_size[0] / 2, 0
 
         shots = self._get_shots()
-        shots.sort(key=lambda shot: -shot.cos_angle)
-        return shots[0].target
+        if shots:
+            return max(shots, key=lambda shot: shot.quality())
+        else:
+            print("No shots available! Doing a Hail Mary.")
+            return self.hail_mary()
+
+    def hail_mary(self):
+        """Aim directly at some ball of the correct color."""
+        for ball in self.balls[self.goal_color]:
+            if self._is_clear(self.balls["white"], ball, excepts=[self.balls["white"], ball]):
+                return ball
+        return self.balls[self.goal_color][0]
 
     def _is_break(self):
         not_near = 0
@@ -165,3 +175,6 @@ class Shot:
         self.pocket = pocket[0], pocket[1]
         self.cos_angle = cos_angle  # larger is better
         self.travel_dist = travel_dist
+
+    def quality(self):
+        return -travel_dist

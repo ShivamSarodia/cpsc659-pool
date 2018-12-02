@@ -350,7 +350,7 @@ class TableDetector:
 
 def main():
     td = TableDetector()
-    td.load_image("screenshots_new/screenshot_22435476.png")
+    td.load_image("screenshots/screenshot_22435476.png")
     td.detect_all()
 
     td.display_table_detections()
