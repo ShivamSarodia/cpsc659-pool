@@ -194,7 +194,11 @@ class TableDetector:
                                  self.tableCorners['tl'][1] + self.gameWindowTopLeft[1])
         self.tableSize = self.tableCrop.shape[1], self.tableCrop.shape[0]
 
-    def __detect_black_ball(self):
+    def _is_same_detection(self, b1, b2):
+        est_ball_radius = 15
+        return (b1[0] - b2[0]) ** 2 + (b1[1] - b2[1]) ** 2 < est_ball_radius ** 2
+
+    def _detect_black_ball(self):
         hsv = cv2.cvtColor(self.tableCrop, cv2.COLOR_BGR2HSV)
         sats = hsv[:,:,1].copy()
         vals = hsv[:,:,2].copy()
@@ -213,17 +217,44 @@ class TableDetector:
                                 maxRadius=19)
 
         if not circles.size == 0:
-            print("Found black circle")
             x = int(circles[0][0][0])
             y = int(circles[0][0][1])
-
             self.balls["black"] = (x, y)
+        else:
+            print("No black ball detected!")
+
+    def _detect_white_ball(self, circles):
+        full_hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
+        sats = full_hsv[:,:,1].copy()
+
+        # Misnomer - the ball with minimal "whitness" is the white ball.
+        def whiteness(circle, sats):
+            x, y, r = circle[0], circle[1], circle[2]
+            mask = np.zeros((self.img.shape[0], self.img.shape[1]), np.uint8)
+            circle_x = int(x + self.tableCropTopLeft[0])
+            circle_y = int(y + self.tableCropTopLeft[1])
+            circle_r = int(r)
+            cv2.circle(mask, (circle_x, circle_y), circle_r, (255, 255, 255), thickness=-1)
+
+            masked_sats = cv2.bitwise_and(sats, sats, mask=mask)
+            return np.sum(masked_sats) / np.sum(mask > 0)
+
+        whitest_ball = None
+        min_whitness = None
+        for circle in circles:
+            if "black" in self.balls and self._is_same_detection(circle, self.balls["black"]):
+                continue
+            if whitest_ball is None or whiteness(circle, sats) < min_whitness:
+                whitest_ball = circle
+                min_whitness = whiteness(circle, sats)
+
+        self.balls["white"] = whitest_ball[0], whitest_ball[1]
 
     def detect_balls(self):
         hsv = cv2.cvtColor(self.tableCrop, cv2.COLOR_BGR2HSV)
         hues = hsv[:,:,0].copy()
 
-        self.__detect_black_ball()
+        self._detect_black_ball()
         # cv2.circle(self.tableCrop, (x, y), int(r), (0, 0, 255), thickness=2)
         # sat_mask = cv2.drawKeypoints(sat_mask, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
@@ -237,49 +268,40 @@ class TableDetector:
                                 minRadius=15,
                                 maxRadius=19)
 
-        full_hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
-        sats = full_hsv[:,:,1].copy()
+        self._detect_white_ball(circles[0])
 
-        radii = []
+        self.ballRadius = -1
         for circle in circles[0]:
-            is_ball = self._classify_ball(*circle, sats)
-            if is_ball:
-                radii.append(circle[2])
+            # White and black balls have already been detected.
+            if "white" in self.balls and self._is_same_detection(circle, self.balls["white"]):
+                print("skipping white")
+                print(circle)
+                print(self.balls["white"])
+                continue
+            if "black" in self.balls and self._is_same_detection(circle, self.balls["black"]):
+                print("skipping black")
+                print(circle)
+                print(self.balls["black"])
+                continue
 
-        self.ballRadius = np.max(radii)
+            self._classify_ball(*circle)
+            self.ballRadius = max(self.ballRadius, circle[2])
 
-    def _classify_ball(self, x, y, r, sats):
+    def _classify_ball(self, x, y, r):
         """Given the coordinates of a ball, add it to the self.balls dictionary."""
-
         mask = np.zeros((self.img.shape[0], self.img.shape[1]), np.uint8)
         circle_x = int(x + self.tableCropTopLeft[0])
         circle_y = int(y + self.tableCropTopLeft[1])
         circle_r = int(r)
         cv2.circle(mask, (circle_x, circle_y), circle_r, (255, 255, 255), thickness=-1)
 
-        masked_sats = cv2.bitwise_and(sats, sats, mask=mask)
-        mean_sat = np.sum(masked_sats) / np.sum(mask > 0)
-        print("Mean sat: " + str(mean_sat))
-
-        if mean_sat < 5:
-            # self.balls["black"] = (x, y)
-            # black ball already detected
-            return False
-        elif mean_sat < 25:
-            self.balls["white"] = (x, y)
-            return True
-
         masked_img = cv2.bitwise_and(self.img, self.img, mask=mask)
         ball_img = masked_img[circle_y - circle_r:circle_y + circle_r, circle_x - circle_r:circle_x + circle_r]
-
-        if ball_img.shape[0] > 0 and ball_img.shape[1] > 0:
-            pred = self.bc.classify_ball(cv2.resize(ball_img, (34, 34)))
-            if pred == 0:
-                self.balls["solids"].append((x, y))
-                return True
-            else:
-                self.balls["stripes"].append((x, y))
-                return True
+        pred = self.bc.classify_ball(cv2.resize(ball_img, (34, 34)))
+        if pred == 0:
+            self.balls["solids"].append((x, y))
+        else:
+            self.balls["stripes"].append((x, y))
 
     def display_table_detections(self):
         image_copy = np.copy(self.tableCrop)
@@ -341,17 +363,24 @@ class TableDetector:
 
         def seen_before(b1):
             for b2 in all_other_balls:
+
                 if (b1[0] - b2[0]) ** 2 + (b1[1] - b2[1]) ** 2 < self.ballRadius ** 2:
                     return True
             return False
 
-        self.balls["stripes"] = [b for b in self.balls["stripes"] if seen_before(b)]
-        self.balls["solids"] = [b for b in self.balls["solids"] if seen_before(b)]
+        self.balls["stripes"] = [b for b in self.balls["stripes"]
+            if any(self._is_same_detection(b, b2) for b2 in all_other_balls)]
+        self.balls["solids"] = [b for b in self.balls["solids"]
+            if any(self._is_same_detection(b, b2) for b2 in all_other_balls)]
 
 def main():
     td = TableDetector()
-    td.load_image("screenshots/screenshot_22435476.png")
+    td.load_image("screenshots/screenshot_8604880758.png")
     td.detect_all()
+    print(len(td.balls["stripes"]))
+    print(len(td.balls["solids"]))
+    print(td.balls["black"])
+    print(td.balls["white"])
 
     td.display_table_detections()
 
