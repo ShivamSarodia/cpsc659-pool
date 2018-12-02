@@ -40,10 +40,13 @@ class GameController:
                    (end_y + self.crop_offset[1]) / 2)
 
         autopy.mouse.move(*adj_start)
-        time.sleep(1)
+        time.sleep(0.5)
         autopy.mouse.click()
+        time.sleep(0.2)
         autopy.mouse.toggle(None, True)
+        time.sleep(0.25)
         autopy.mouse.smooth_move(*adj_end)
+        time.sleep(0.5)
         autopy.mouse.toggle(None, False)
         time.sleep(0.5)
 
@@ -85,7 +88,6 @@ class GameController:
         Force is a value roughly between 0 and 1 that controls the force of the hit.
         """
         intersections = self._get_edge_intersections(target)
-        print(intersections)
 
         if target[0] > self.cue_coords[0]:
             start = max(intersections, key=lambda i: i[0])
