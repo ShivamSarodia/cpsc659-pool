@@ -156,6 +156,10 @@ class Player:
         return self.balls[self.goal_color][0]
 
     def _is_break(self):
+        # Normally, there's 16 balls.
+        if len(self.all_balls) <= 14:
+            return False
+
         not_near = 0
         for b1 in self.all_balls:
             nearby = 0
@@ -166,8 +170,7 @@ class Player:
             if nearby < 2:
                 not_near += 1
 
-        # TODO: once none detection is implemented, reduce to 2.
-        return not_near < 3
+        return not_near < 2
 
 class Shot:
     def __init__(self, target, pocket, cos_angle, travel_dist):
