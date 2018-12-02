@@ -126,6 +126,10 @@ class GameController:
             if self._test_stick_position(target):
                 return target
 
+        # If nothing was found, return a random target.
+        print("Could not find a good stick position for image.")
+        return target
+
     def _test_stick_position(self, target):
         """Test whether a given stick position would not obscure any balls."""
 
