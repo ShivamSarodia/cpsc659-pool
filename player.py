@@ -177,4 +177,4 @@ class Shot:
         self.travel_dist = travel_dist
 
     def quality(self):
-        return -travel_dist
+        return -self.travel_dist
