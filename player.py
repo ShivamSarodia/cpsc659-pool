@@ -13,8 +13,11 @@ class Player:
         if "black" in self.balls:
             self.all_balls.append(self.balls["black"])
 
-        # For each pocket, define the target point to aim at in order to enter the pocket.
-        self.pocket_targets = dict(self.raw_pockets)
+        # For each pocket, define a "pocket target" point to aim at in order to enter the pocket.
+        self.pocket_targets = {}
+        self.pocket_targets['mr'] = self.raw_pockets['mr']
+        self.pocket_targets['ml'] = self.raw_pockets['ml']
+
         pocket_offset = self.ball_radius * 1.35
         for l in ["tl", "tr", "bl", "br"]:
             x, y = self.raw_pockets[l]
