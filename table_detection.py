@@ -169,8 +169,8 @@ class TableDetector:
                                  self.tableCorners[lab][1] - self.tableCorners["tl"][1])
 
         # Middle pockets are projections onto the corresponding table edge.
-        self.pockets['ml'] = (0, filtered_keypoints[0][1] - self.tableCorners["tl"][1])
-        self.pockets['mr'] = (self.pockets["tr"][0], filtered_keypoints[1][1] - self.tableCorners["tl"][1])
+        #self.pockets['ml'] = (0, filtered_keypoints[0][1] - self.tableCorners["tl"][1])
+        #self.pockets['mr'] = (self.pockets["tr"][0], filtered_keypoints[1][1] - self.tableCorners["tl"][1])
 
     def _detect_corners(self, img, color_range):
         mask = cv2.inRange(img, color_range[0], color_range[1])
@@ -239,21 +239,21 @@ class TableDetector:
         ball_colors = [(255, 0, 0), (0, 255, 0)]
         if self.tentative_balls is not None:
             for x, y, r in self.tentative_balls:
-                mask = np.zeros((self.img.shape[0], self.img.shape[1]), np.uint8)
+                mask = np.zeros((image_copy.shape[0], image_copy.shape[1]), np.uint8)
 
-                circle_x = int(x + self.tableCropTopLeft[1])
-                circle_y = int(y + self.tableCropTopLeft[0])
+                circle_x = int(x)
+                circle_y = int(y)
                 circle_r = int(r)
                 cv2.circle(mask, (circle_x, circle_y), circle_r, (255, 255, 255), thickness=-1)
 
-                masked_img = cv2.bitwise_and(self.img, self.img, mask=mask)
+                masked_img = cv2.bitwise_and(image_copy, image_copy, mask=mask)
                 ball_img = masked_img[circle_y - circle_r:circle_y + circle_r, circle_x - circle_r:circle_x + circle_r]
                 print(circle_x, circle_y, circle_r)
                 print(ball_img.shape)
 
                 if ball_img.shape[0] > 0 and ball_img.shape[1] > 0:
                     pred = self.bc.classify_ball(cv2.resize(ball_img, (34, 34)))
-                    cv2.circle(image_copy, (int(x), int(y)), int(r), ball_colors[pred])
+                    cv2.circle(image_copy, (int(x), int(y)), int(r), ball_colors[pred], thickness=2)
 
         self.__display_image_internal(image_copy, title="Table detections")
 

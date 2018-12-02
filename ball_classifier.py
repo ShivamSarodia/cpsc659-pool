@@ -9,9 +9,11 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from joblib import dump, load
-from sklearn import cross_validation, metrics
+# from sklearn import cross_validation
+from sklearn import metrics
 import tensorflow as tf
 from tensorflow import keras
+from matplotlib import pyplot as plt
 
 def fd_hu_moments(image):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -39,13 +41,13 @@ def cnn_model(train_input, train_target, test_input, test_target, num_classes = 
     model.add(keras.layers.Conv2D(8, kernel_size=(2, 2), strides=(1, 1),
                      activation='relu',
                      padding='same',
-                     input_shape=(20, 20, 3)))
+                     input_shape=(34, 34, 3)))
     model.add(keras.layers.MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
     model.add(keras.layers.Conv2D(16, (2, 2), padding='same', activation='relu'))
     model.add(keras.layers.MaxPooling2D(pool_size=(2, 2)))
     model.add(keras.layers.Flatten())
-    model.add(keras.layers.Dense(100, activation='relu'))#, kernel_regularizer=keras.regularizers.l2(0.00001)))
-    model.add(keras.layers.Dense(50, activation='relu'))#, kernel_regularizer=keras.regularizers.l2(0.00001)))
+    model.add(keras.layers.Dense(100, activation='relu', kernel_regularizer=keras.regularizers.l2(0.00001)))
+    model.add(keras.layers.Dense(50, activation='relu', kernel_regularizer=keras.regularizers.l2(0.00001)))
     model.add(keras.layers.Dense(num_classes, activation='softmax'))
 
     model.compile(loss=keras.losses.categorical_crossentropy,
@@ -57,17 +59,115 @@ def cnn_model(train_input, train_target, test_input, test_target, num_classes = 
           verbose=1,
           validation_data=(test_input, test_target))
 
+def threshold_predict(train_input):
+    preds = []
+    params = cv2.SimpleBlobDetector_Params()
+    params.filterByArea = True
+    params.minArea = 100
+    params.maxArea = 250
+
+    params.filterByCircularity = True
+    params.minCircularity = 0.05
+
+    params.filterByConvexity = False
+
+    params.filterByInertia = False
+    # params.minInertiaRatio = 0.1
+    detector = cv2.SimpleBlobDetector_create(params)
+
+    for idx in range(len(train_input)):
+        img = cv2.cvtColor(train_input[idx], cv2.COLOR_BGR2HSV)
+        lower_white = np.array([0,0,230])
+        upper_white = np.array([179,10,255])
+
+        mask = cv2.inRange(img, lower_white, upper_white)
+
+        keypoints = detector.detect(mask)
+
+        centre_mask = 255 - np.zeros((mask.shape[0], mask.shape[1]), np.uint8)
+        if keypoints:
+            print("Found blob")
+            centre, r = keypoints[0].pt, int(keypoints[0].size/2)
+            cv2.circle(centre_mask, (int(centre[0]), int(centre[1])), r, (0, 0, 0), thickness=-1)
+            # mask = cv2.drawKeypoints(mask, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+        cv2.imshow('original', img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        mask = cv2.bitwise_and(mask, mask, mask=centre_mask)
+        cv2.imshow('hsv mask', mask)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        white_pix = np.sum(mask > 0)
+        print(white_pix)
+
+        if white_pix > 290:
+            preds.append((0.0, 1.0))
+        elif white_pix < 100:
+            preds.append((1.0, 0.0))
+        else:
+            preds.append((0.5, 0.5))
+
+    return preds
+
 def threshold_model_fit(train_input, train_target):
     max_white_pix = 0
+    predictions = []
+
+    params = cv2.SimpleBlobDetector_Params()
+    params.filterByArea = True
+    params.minArea = 700
+    params.maxArea = 1200
+
+    params.filterByCircularity = True
+    params.minCircularity = 0.1
+
+    params.filterByConvexity = False
+
+    params.filterByInertia = False
+    # params.minInertiaRatio = 0.1
+    detector = cv2.SimpleBlobDetector_create(params)
+
     for idx, label in enumerate(train_target):
-        if label == 0:
-            img = train_input[idx]
-            n_white_pix = np.sum(img > 230)
-            if n_white_pix > 0:
-                max_white_pix = max(max_white_pix, n_white_pix)
+        if label == 2:
+            mask = cv2.cvtColor(train_input[idx], cv2.COLOR_BGR2HSV)
+
+            # img = cv2.bitwise_and(img, img, black_mask)
+            # lower_white = np.array([0,0,230])
+            # upper_white = np.array([179,10,255])
+            # mask = cv2.inRange(img, lower_white, upper_white)
+
+            keypoints = detector.detect(mask)
+            if not (keypoints == None or keypoints == []):
+                print("Found blob")
+                mask = cv2.drawKeypoints(mask, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+            predictions.append(mask)
+            # continue
+
+            cv2.imshow('hsv mask', mask)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+            cv2.imshow('original', train_input[idx])
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+            num_white_pix = np.sum(mask > 0)
+            print(num_white_pix)
+    hist = cv2.calcHist(predictions,[0],None,[256],[0,256])
+    plt.plot(hist,color = 'r')
+    plt.xlim([0,256])
+    #hist = cv2.calcHist(predictions,[2],None,[256],[0,256])
+    #plt.plot(hist,color = 'b')
+    #plt.xlim([0,256])
+    plt.show()
+    # break
     print(max_white_pix)
 
-def modelfit(alg, train_input, train_target, val_input, val_target, performCV=True, printFeatureImportance=False, cv_folds=5):
+def modelfit(alg, train_input, train_target, val_input, val_target, additionalPreds=None, performCV=False, printFeatureImportance=False, cv_folds=5):
     #Fit the algorithm on the data
     alg.fit(train_input, train_target)
 
@@ -75,7 +175,15 @@ def modelfit(alg, train_input, train_target, val_input, val_target, performCV=Tr
     dtrain_predictions = alg.predict(train_input)
     # dtrain_predprob = alg.predict_proba(train_input)[:,1]
 
+    probs = alg.predict_proba(val_input)
+    print(probs)
     val_predictions = alg.predict(val_input)
+
+    if additionalPreds:
+        val_predictions = []
+        for idx, prob in enumerate(probs):
+            val_predictions.append(int(round(0.5*prob[1] + 0.5*additionalPreds[idx][1])))
+        val_predictions = np.array(val_predictions)
     #Perform cross-validation:
     #if performCV:
     #    cv_score = cross_validation.cross_val_score(alg, train_input, train_target, cv=cv_folds, scoring='roc_auc')
@@ -109,10 +217,15 @@ def main():
         im.close()
 
     targets = np.array([int(label[1]) for label in labels])
-    # targets = np.eye(3)[targets]
-    global_features = np.array([np.hstack([fd_histogram(image), fd_haralick(image), fd_hu_moments(image)]) for image in images])
-    global_features = global_features.reshape((len(images), -1))
-    train_input, train_target, test_input, test_target = split_train_test(global_features, targets)
+    train_input, train_target, test_input, test_target = split_train_test(np.array(images), targets)
+    threshold_model_fit(train_input, train_target)
+    return
+    threshold_preds = threshold_predict(test_input)
+    train_input = np.array([np.hstack([fd_histogram(image), fd_haralick(image), fd_hu_moments(image)]) for image in train_input])
+    test_input = np.array([np.hstack([fd_histogram(image), fd_haralick(image), fd_hu_moments(image)]) for image in test_input])
+    # targets = np.eye(2)[targets]
+    # global_features = np.array([np.hstack([fd_histogram(image), fd_haralick(image), fd_hu_moments(image)]) for image in images])
+    # global_features = global_features.reshape((len(images), -1))
 
     scaler = StandardScaler()
     train_input = scaler.fit_transform(train_input)
@@ -123,9 +236,9 @@ def main():
 
     gbm0 = GradientBoostingClassifier(n_estimators = 40, max_depth = 3, random_state=10)
     # svm_clf = SVC(kernel='poly', degree=4, gamma='auto')
-    modelfit(gbm0, train_input, train_target, test_input, test_target)
+    modelfit(gbm0, train_input, train_target, test_input, test_target, threshold_preds)
     # threshold_model_fit(train_input, train_target)
-    # cnn_model(train_input, train_target, test_input, test_target)
+    # cnn_model(train_input, train_target, test_input, test_target, 2)
     dump(scaler, 'ball_classification_norm_params.joblib')
     dump(gbm0, 'ball_classification_gbm.joblib')
 

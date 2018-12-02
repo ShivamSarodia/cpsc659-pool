@@ -11,7 +11,7 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from joblib import dump, load
-from sklearn import cross_validation, metrics
+# from sklearn import cross_validation, metrics
 
 class BallClassifier:
     def __init__(self, norm_path, classifier_path):
@@ -55,11 +55,67 @@ class BallClassifier:
         # scaler = load(norm_path)
         return self.scaler.transform(features)
 
+    def __threshold_pred(self, im):
+        params = cv2.SimpleBlobDetector_Params()
+        params.filterByArea = True
+        params.minArea = 100
+        params.maxArea = 250
+
+        params.filterByCircularity = True
+        params.minCircularity = 0.05
+
+        params.filterByConvexity = False
+
+        params.filterByInertia = False
+        # params.minInertiaRatio = 0.1
+        detector = cv2.SimpleBlobDetector_create(params)
+        img = cv2.cvtColor(im, cv2.COLOR_BGR2HSV)
+        lower_white = np.array([0,0,230])
+        upper_white = np.array([179,10,255])
+
+        mask = cv2.inRange(img, lower_white, upper_white)
+        keypoints = detector.detect(mask)
+
+        centre_mask = 255 - np.zeros((mask.shape[0], mask.shape[1]), np.uint8)
+        if keypoints:
+            print("Found blob")
+            centre, r = keypoints[0].pt, int(keypoints[0].size/2)
+            cv2.circle(centre_mask, (int(centre[0]), int(centre[1])), r, (0, 0, 0), thickness=-1)
+            # mask = cv2.drawKeypoints(mask, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        cv2.imshow('centre mask', centre_mask)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        cv2.imshow('original', im)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        mask = cv2.bitwise_and(mask, mask, mask=centre_mask)
+        cv2.imshow('hsv mask', mask)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        white_pix = np.sum(mask > 0)
+        print(white_pix)
+
+        thresh_pred = ()
+        if white_pix > 240:
+            thresh_pred = (0.0, 1.0)
+        elif white_pix < 110:
+            thresh_pred = (1.0, 0.0)
+        else:
+            thresh_pred = (0.5, 0.5)
+        return thresh_pred
+
+
     def classify_ball(self, im):
         features = self.__build_features(im)
-        prediction = self.alg.predict(features)
+        prediction = self.alg.predict_proba(features)
 
-        return prediction[0]
+        print("gbm prob of stripes: " + str(prediction[0][1]))
+        thresh_pred = self.__threshold_pred(im)
+
+        return int(round(prediction[0][1] * 0.5 + thresh_pred[1] * 0.5))
 
 # def main():
 #     parser = argparse.ArgumentParser()
