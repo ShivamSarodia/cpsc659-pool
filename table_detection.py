@@ -234,7 +234,7 @@ class TableDetector:
         if mean_sat < 5:
             self.balls["black"] = (x, y)
             return True
-        elif mean_sat < 35:
+        elif mean_sat < 25:
             self.balls["white"] = (x, y)
             return True
 
@@ -250,8 +250,6 @@ class TableDetector:
                 self.balls["stripes"].append((x, y))
                 return True
 
-        return False
-
     def display_table_detections(self):
         image_copy = np.copy(self.tableCrop)
 
@@ -261,17 +259,17 @@ class TableDetector:
 
         if "white" in self.balls:
             x, y = self.balls["white"]
-            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 255, 0))
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 0))
 
         if "black" in self.balls:
             x, y = self.balls["black"]
-            # cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 255))
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (255, 255, 255))
 
         for x, y in self.balls["stripes"]:
             cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (255, 0, 0))
 
         for x, y in self.balls["solids"]:
-            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (255, 0, 255))
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 255))
 
         self.__display_image_internal(image_copy, title="Table detections")
 
@@ -305,7 +303,7 @@ class TableDetector:
 
 def main():
     td = TableDetector()
-    td.load_image("screenshots/screen_1022506300.png")
+    td.load_image("screenshots/screenshot_5903520954.png")
     td.detect_all()
 
     td.display_table_detections()

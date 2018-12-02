@@ -78,25 +78,23 @@ class BallClassifier:
 
         centre_mask = 255 - np.zeros((mask.shape[0], mask.shape[1]), np.uint8)
         if keypoints:
-            print("Found blob")
             centre, r = keypoints[0].pt, int(keypoints[0].size/2)
             cv2.circle(centre_mask, (int(centre[0]), int(centre[1])), r, (0, 0, 0), thickness=-1)
             # mask = cv2.drawKeypoints(mask, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        cv2.imshow('centre mask', centre_mask)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # cv2.imshow('centre mask', centre_mask)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
-        cv2.imshow('original', im)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # cv2.imshow('original', im)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
         mask = cv2.bitwise_and(mask, mask, mask=centre_mask)
-        cv2.imshow('hsv mask', mask)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # cv2.imshow('hsv mask', mask)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
         white_pix = np.sum(mask > 0)
-        print(white_pix)
 
         thresh_pred = ()
         if white_pix > 240:

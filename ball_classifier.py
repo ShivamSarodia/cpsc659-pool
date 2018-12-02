@@ -86,26 +86,26 @@ def threshold_predict(train_input):
 
         centre_mask = 255 - np.zeros((mask.shape[0], mask.shape[1]), np.uint8)
         if keypoints:
-            print("Found blob")
+            # print("Found blob")
             centre, r = keypoints[0].pt, int(keypoints[0].size/2)
             cv2.circle(centre_mask, (int(centre[0]), int(centre[1])), r, (0, 0, 0), thickness=-1)
             # mask = cv2.drawKeypoints(mask, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
-        cv2.imshow('original', img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # cv2.imshow('original', img)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
         mask = cv2.bitwise_and(mask, mask, mask=centre_mask)
-        cv2.imshow('hsv mask', mask)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # cv2.imshow('hsv mask', mask)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
         white_pix = np.sum(mask > 0)
         print(white_pix)
 
-        if white_pix > 290:
+        if white_pix > 240:
             preds.append((0.0, 1.0))
-        elif white_pix < 100:
+        elif white_pix < 110:
             preds.append((1.0, 0.0))
         else:
             preds.append((0.5, 0.5))
@@ -211,15 +211,13 @@ def main():
     labels = np.load('train_augmented_labels.npy')
     images = []
     for str_label, label in labels:
-        im_path = 'train_augmented/' + str_label.decode('UTF-8') + '.png'
+        im_path = 'train_augmented/' + str_label + '.png'
         im = Image.open(im_path)#.convert('L')
         images.append(np.array(im)[...,:3])
         im.close()
 
     targets = np.array([int(label[1]) for label in labels])
     train_input, train_target, test_input, test_target = split_train_test(np.array(images), targets)
-    threshold_model_fit(train_input, train_target)
-    return
     threshold_preds = threshold_predict(test_input)
     train_input = np.array([np.hstack([fd_histogram(image), fd_haralick(image), fd_hu_moments(image)]) for image in train_input])
     test_input = np.array([np.hstack([fd_histogram(image), fd_haralick(image), fd_hu_moments(image)]) for image in test_input])
