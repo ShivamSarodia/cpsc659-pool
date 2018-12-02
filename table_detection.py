@@ -230,6 +230,7 @@ class TableDetector:
 
         masked_sats = cv2.bitwise_and(sats, sats, mask=mask)
         mean_sat = np.sum(masked_sats) / np.sum(mask > 0)
+        print("Mean sat: " + str(mean_sat))
 
         if mean_sat < 5:
             self.balls["black"] = (x, y)
@@ -301,9 +302,25 @@ class TableDetector:
             ball_img = masked_img[circle_y - circle_r:circle_y + circle_r, circle_x - circle_r:circle_x + circle_r]
             cv2.imwrite("ball_imgs/" + str(random.randint(0, 1e10)) + ".png", ball_img)
 
+    def remove_nondup_balls(self, other_balls):
+        all_other_balls = other_balls["stripes"] + other_balls["solids"]
+        if "white" in other_balls:
+            all_other_balls.append(other_balls["white"])
+        if "black" in other_balls:
+            all_other_balls.append(other_balls["black"])
+
+        def seen_before(b1):
+            for b2 in all_other_balls:
+                if (b1[0] - b2[0]) ** 2 + (b1[1] - b2[1]) ** 2 < self.ballRadius ** 2:
+                    return True
+            return False
+    
+        self.balls["stripes"] = [b for b in self.balls["stripes"] if seen_before(b)]
+        self.balls["solids"] = [b for b in self.balls["solids"] if seen_before(b)]
+
 def main():
     td = TableDetector()
-    td.load_image("screenshots/screenshot_5903520954.png")
+    td.load_image("screenshots/screenshot_325772347.png")
     td.detect_all()
 
     td.display_table_detections()

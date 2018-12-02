@@ -35,6 +35,7 @@ class Player:
 
         self.MIN_COS_ANGLE = -0.2
         self.MAX_MID_POCKET_RATIO = 0.6
+        self.COLLISION_RANGE = 2.1
 
     def _is_same_ball(self, b1, b2):
         return np.abs(b1[0] - b2[0]) + np.abs(b1[1] - b2[1]) < 1
@@ -82,7 +83,7 @@ class Player:
         
         Ignores the balls listed in `excepts`.
         """  
-        return self._clear_distance(start, end, excepts) > 2.1 * self.ball_radius
+        return self._clear_distance(start, end, excepts) > self.COLLISION_RANGE * self.ball_radius
     
     def _get_shots(self):
         shots = []
