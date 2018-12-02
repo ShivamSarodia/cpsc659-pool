@@ -33,7 +33,7 @@ class GameController:
                    (end_y + self.crop_offset[1]) / 2)
 
         autopy.mouse.move(*adj_start)
-        time.sleep(0.5)
+        time.sleep(1)
         autopy.mouse.click()
         autopy.mouse.toggle(None, True)
         autopy.mouse.smooth_move(*adj_end)
