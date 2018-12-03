@@ -138,8 +138,10 @@ class Player:
                 # vertical edge
                 reflection = (2*edge[0]-target[0], target[1])
                 incidence_point = self._get_reflection_point(cue, reflection, 'v', edge[0])
+
             if self._is_clear(cue, incidence_point, [cue]) and self._is_clear(incidence_point, target, [cue, target]):
                 shots.append(incidence_point)
+
         return shots
 
 
@@ -158,6 +160,10 @@ class Player:
             if angle_ratio > self.MAX_MID_POCKET_RATIO:
                 return None
 
+        # Is path from ball to pocket clear?
+        if not self._is_clear(ball, pocket, [cue, ball]):
+            return None
+
         # get reflection shots (if any)
         reflection_targets = self._rebound_shots(cue, ball)
         possible_targets = [(pocket, 'direct')]
@@ -166,18 +172,17 @@ class Player:
 
         shots = []
         for final_target in possible_targets:
-            # Is path from ball to pocket clear?
-            if not self._is_clear(ball, final_target[0], [cue, ball]):
-                return None
-
             # Compute target position for cue ball
             if final_target[1] == 'direct':
-                unit_towards_target = (ball - final_target) / np.linalg.norm(ball - final_target)
+                unit_towards_target = (ball - final_target[0]) / np.linalg.norm(ball - final_target[0])
                 target = ball + 2 * self.ball_radius * unit_towards_target
                 white_dist = np.linalg.norm(cue - target)
+
+                if not self._is_clear(cue, target, [cue, ball]):
+                    return None
             else:
-                target = final_target
-                white_dist = np.linalg.norm(cue - target) + np.linalg.norm(target - ball)
+                target = final_target[0]
+                white_dist = 100 * (np.linalg.norm(cue - target) + np.linalg.norm(target - ball))
 
             # Compute quality of angle from cue ball to target
             v1 = cue - target
