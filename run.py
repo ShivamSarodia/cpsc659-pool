@@ -45,10 +45,10 @@ while True:
         print("Rebound shot...")
     if shot.is_hail_mary:
         print("Hail mary...")
-    print(f"target: {shot.target}, force: {shot.force()}, quality: {shot.quality()}")
+    print(f"target: {shot.target}, raw force: {shot.raw_force()}, force: {shot.force()}, quality: {shot.quality()}")
 
     controller = GameController(td.tableSize, td.tableCropTopLeft, td.balls, td.ballRadius)
-    # controller.make_shot(shot.target, shot.force())
+    controller.make_shot(shot.target, shot.force())
 
     if args.repeat:
         time.sleep(10)

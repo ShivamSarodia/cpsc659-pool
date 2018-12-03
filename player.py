@@ -178,6 +178,7 @@ class Player:
         for final_target in possible_targets:
             # Compute target position for cue ball
             target = np.array(final_target[0])
+            cos_angle_r = 0
 
             if final_target[1] == 'direct':
                 if not self._is_clear(cue, target, [cue, ball]):
@@ -191,11 +192,15 @@ class Player:
                 v1 = target - target_near_ball
                 v2 = pocket - target_near_ball
 
+                v1_p = cue - target
+                v2_p = target_near_ball - target
+                cos_angle_r = np.dot(v1_p, v2_p) / (np.linalg.norm(v1_p) * np.linalg.norm(v2_p))
+
             # Compute quality of angle from cue ball to target
             cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
             if cos_angle > self.MIN_DIRECT_COS_ANGLE and final_target[1] == 'direct':
                 continue
-            if cos_angle > self.MIN_REBOUND_COS_ANGLE and final_target[1] == 'rebound':
+            if final_target[1] == 'rebound' and (cos_angle > self.MIN_REBOUND_COS_ANGLE):
                 continue
 
             shot_params = {
@@ -205,9 +210,11 @@ class Player:
                 "white_travel_dist": white_dist,
                 "target_travel_dist": np.linalg.norm(pocket - ball),
                 "cos_angle": -cos_angle,
+                "cos_angle_reflection": cos_angle_r
             }
             if final_target[1] == "direct":
                 shot_params["second_target"] = None
+                shot_params["cos_angle_reflection"] = None
             shots.append(Shot(**shot_params))
         return shots
 
@@ -262,7 +269,9 @@ class Player:
         return not_near < 2
 
 class Shot:
-    def __init__(self, target, pocket=None, second_target=None, white_travel_dist=None, target_travel_dist=None, cos_angle=None, is_hail_mary=False, is_break=False):
+    def __init__(self, target, pocket=None, second_target=None, white_travel_dist=None, target_travel_dist=None, cos_angle=None, cos_angle_reflection=None, is_hail_mary=False, is_break=False):
+        self.MAX_REBOUND_INCIDENCE_COS_ANGLE = 0.7
+        
         # The point to aim the white ball at.
         if target is not None:
             self.target = target[0], target[1]
@@ -288,30 +297,36 @@ class Shot:
         # Negative cos(theta) of angle between white ball and target path. Larger is better.
         self.cos_angle = cos_angle 
 
+        # Cos(theta) of 2*angle of incidence for reflected shots. Smaller is better.
+        self.cos_angle_reflection = cos_angle_reflection
+
         # True if this is a hail mary shot.
         self.is_hail_mary = is_hail_mary
 
         # True if this is a break.
         self.is_break = is_break
 
-    def force(self):
+    def raw_force(self):
         if self.is_hail_mary:
             return 0.7
         if self.is_break:
-            return 1
+            return 1.0
             
         if self.second_target is None:
-            dist_factor = (self.white_travel_dist + self.target_travel_dist) / 900
+            dist_factor = (self.white_travel_dist + self.target_travel_dist) / 1800
         else:
-            dist_factor = (self.white_travel_dist / 2 + self.target_travel_dist) / 900
+            dist_factor = (self.white_travel_dist / 2 + self.target_travel_dist) / 1800 + 0.2 * self.cos_angle ** 2
 
-        force = dist_factor / self.cos_angle
-        if force > 1:
+        return dist_factor / self.cos_angle ** 2
+
+    def force(self):
+        raw_force = self.raw_force()
+        if raw_force > 1:
             return 1
-        elif force < 0.5:
+        elif raw_force < 0.5:
             return 0.5
         else:
-            return force
+            return raw_force
 
     def quality(self, flex=False):
         print("---------------------------------")
@@ -334,11 +349,16 @@ class Shot:
         if self.second_target is not None:
             # Reduce white travel cost for rebound shots.
             qualities.append(-self.white_travel_dist / 2)
+            if self.cos_angle_reflection > self.MAX_REBOUND_INCIDENCE_COS_ANGLE:
+                qualities.append(-1000)
         else:
             qualities.append(-self.white_travel_dist)
         print(f"White travel quality: {qualities[-1]}")
 
-        qualities.append(-4 * self.target_travel_dist)
+        if self.second_target is not None:
+            qualities.append(-6 * self.target_travel_dist)
+        else:
+            qualities.append(-3.5 * self.target_travel_dist)
         print(f"Target travel quality: {qualities[-1]}")
 
         qualities.append(self.cos_angle * 1800)

@@ -216,7 +216,7 @@ class TableDetector:
                                 minRadius=14,
                                 maxRadius=19)
 
-        if not circles.size == 0:
+        if circles is not None and not circles.size == 0:
             x = int(circles[0][0][0])
             y = int(circles[0][0][1])
             self.balls["black"] = (x, y)
