@@ -13,6 +13,17 @@ parser.add_argument('--flex', action='store_true')
 parser.add_argument('--repeat', action='store_true')
 args = parser.parse_args(sys.argv[1:])
 
+# https://stackoverflow.com/questions/287871/print-in-terminal-with-colors
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 while True:
     # Get preliminary screenshot.
     print("Taking preliminary screenshot...")
@@ -40,11 +51,11 @@ while True:
     player = Player(td.tableSize, td.pockets, td.balls, td.ballRadius, args.color)
     shot = player.get_shot(flex=args.flex)
     if shot.is_break:
-        print("Breaking...")
+        print(bcolors.OKGREEN + "Breaking..." + bcolors.ENDC)
     if shot.second_target is not None:
-        print("Rebound shot...")
+        print(bcolors.FAIL + "Rebound shot..." + bcolors.ENDC)
     if shot.is_hail_mary:
-        print("Hail mary...")
+        print(bcolors.WARNING + "Hail mary..." + bcolors.ENDC)
     print(f"target: {shot.target}, raw force: {shot.raw_force()}, force: {shot.force()}, quality: {shot.quality()}")
 
     controller = GameController(td.tableSize, td.tableCropTopLeft, td.balls, td.ballRadius)
