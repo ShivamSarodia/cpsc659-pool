@@ -50,9 +50,9 @@ class Player:
         """
         If a point travels from `start` to `end`, what is the minimum distance
         between the point and the center of another ball during its trajectory?
-        
+
         Ignores the centers of balls listed in `excepts`.
-        """        
+        """
         start = np.array(start)
         end = np.array(end)
 
@@ -80,11 +80,11 @@ class Player:
     def _is_clear(self, start, end, excepts=[]):
         """
         Can a ball travel from `start` to `end` without striking another ball?
-        
+
         Ignores the balls listed in `excepts`.
-        """  
+        """
         return self._clear_distance(start, end, excepts) > self.COLLISION_RANGE * self.ball_radius
-    
+
     def _get_shots(self):
         shots = []
         if self.current_goal == "black":
@@ -98,6 +98,48 @@ class Player:
                 if shot:
                     shots.append(shot)
         return shots
+
+    def _get_reflection_point(self, src, target, orientation, pos):
+        if (target[0] - src[0]) == 0:
+            return (target[0], pos)
+        if (target[1] - src[1]) == 0:
+            return (pos, target[1])
+        slope = (target[1] - src[1]) / (target[0] - src[0])
+        x_to_y = lambda x: src[1] + slope * (x - src[0])
+        y_to_x = lambda y: src[0] + (y - src[1]) / slope
+
+        if orientation == 'h':
+            x = y_to_x(pos)
+            if x >= 0 and x <= self.table_size[0]:
+                return(x, pos)
+        else:
+            y = x_to_y(pos)
+            if y >= 0 and y <= self.table_size[1]:
+                return(pos, y)
+
+        return None
+
+    def _rebound_shots(self, cue, target):
+        """
+        Compute if any rebound shots exist
+        """
+        shifted_edges = [(0, self.ball_radius), (0, self.table_size[1]-self.ball_radius), (self.ball_radius, 0), (self.table_size[0]-self.ball_radius, 0)]
+
+        shots = []
+        for edge in shifted_edges:
+            incidence_point = None
+            if edge[0] == 0:
+                # horizontal table edge
+                reflection = (target[0], 2*edge[1]-target[1])
+                incidence_point = self._get_reflection_point(cue, reflection, 'h', edge[1])
+            else:
+                # vertical edge
+                reflection = (2*edge[0]-target[0], target[1])
+                incidence_point = self._get_reflection_point(cue, reflection, 'v', edge[0])
+            if self._is_clear(cue, incidence_point, [cue]) and self._is_clear(incidence_point, target, [cue, target]):
+                shots.append(incidence_point)
+        return shots
+
 
     def _create_shot(self, ball, pocket_label):
         """Create a shot to launch given ball into given pocket.
@@ -114,10 +156,13 @@ class Player:
             if angle_ratio > self.MAX_MID_POCKET_RATIO:
                 return None
 
+        # get reflection shots (if any)
+        reflection_targets = self._rebound_shots(cue, ball)    
+
         # Is path from ball to pocket clear?
         if not self._is_clear(ball, pocket, [cue, ball]):
-            return None            
-        
+            return None
+
         # Compute target position for cue ball
         unit_towards_target = (ball - pocket) / np.linalg.norm(ball - pocket)
         target = ball + 2 * self.ball_radius * unit_towards_target
