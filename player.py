@@ -1,12 +1,12 @@
 import numpy as np
 
 class Player:
-    def __init__(self, table_size, pockets, balls, ball_radius, current_goal):
+    def __init__(self, table_size, pockets, balls, ball_radius, goal_color):
         self.table_size = table_size
         self.raw_pockets = pockets
         self.balls = balls
         self.ball_radius = ball_radius
-        self.current_goal = current_goal
+        self.goal_color = goal_color
 
         assert self.balls["white"] is not None
         self.all_balls = self.balls["stripes"] + self.balls["solids"]
@@ -87,16 +87,18 @@ class Player:
 
     def _get_shots(self):
         shots = []
-        if self.current_goal == "black":
+        if self.goal_color == "black":
             target_balls = [self.balls["black"]]
+        elif self.goal_color is None:
+            target_balls = self.balls["stripes"] + self.balls["solids"]
         else:
-            target_balls = self.balls[self.current_goal]
+            target_balls = self.balls[self.goal_color]
 
         for ball in target_balls:
             for l in self.pocket_targets:
-                shot = self._create_shot(ball, l)
-                if shot:
-                    shots.append(shot)
+                new_shots = self._create_shots(ball, l)
+                if new_shots:
+                    shots.extend(new_shots)
         return shots
 
     def _get_reflection_point(self, src, target, orientation, pos):
@@ -141,7 +143,7 @@ class Player:
         return shots
 
 
-    def _create_shot(self, ball, pocket_label):
+    def _create_shots(self, ball, pocket_label):
         """Create a shot to launch given ball into given pocket.
 
         If no such shot exists, return None.
@@ -157,40 +159,63 @@ class Player:
                 return None
 
         # get reflection shots (if any)
-        reflection_targets = self._rebound_shots(cue, ball)    
+        reflection_targets = self._rebound_shots(cue, ball)
+        possible_targets = [(pocket, 'direct')]
+        for rebound_target in reflection_targets:
+            possible_targets.append((rebound_target, 'rebound'))
 
-        # Is path from ball to pocket clear?
-        if not self._is_clear(ball, pocket, [cue, ball]):
-            return None
+        shots = []
+        for final_target in possible_targets:
+            # Is path from ball to pocket clear?
+            if not self._is_clear(ball, final_target[0], [cue, ball]):
+                return None
 
-        # Compute target position for cue ball
-        unit_towards_target = (ball - pocket) / np.linalg.norm(ball - pocket)
-        target = ball + 2 * self.ball_radius * unit_towards_target
+            # Compute target position for cue ball
+            if final_target[1] == 'direct':
+                unit_towards_target = (ball - final_target) / np.linalg.norm(ball - final_target)
+                target = ball + 2 * self.ball_radius * unit_towards_target
+                white_dist = np.linalg.norm(cue - target)
+            else:
+                target = final_target
+                white_dist = np.linalg.norm(cue - target) + np.linalg.norm(target - ball)
 
-        # Compute quality of angle from cue ball to target
-        v1 = cue - target
-        v2 = pocket - target
-        cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+            # Compute quality of angle from cue ball to target
+            v1 = cue - target
+            v2 = pocket - target
+            cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
-        if cos_angle > self.MIN_COS_ANGLE:
-            return None
+            if final_target[1] == 'direct' and cos_angle > self.MIN_COS_ANGLE:
+                continue
 
-        # Is path from cue to target clear?
-        if not self._is_clear(cue, target, [cue, ball]):
-           return None
-
-        return Shot(target, pocket, -cos_angle, np.linalg.norm(pocket - ball))
+            shots.append(Shot(target, pocket, -cos_angle, white_dist, np.linalg.norm(pocket - ball)))
+        return shots
 
     def get_shot(self):
         if self._is_break():
             print("Breaking...")
-            return self.table_size[0] / 2, 0
+            return (self.table_size[0] / 2, 0), 1
 
         shots = self._get_shots()
-        shots.sort(key=lambda shot: -shot.cos_angle)
-        return shots[0].target
+        if shots:
+            best_shot = max(shots, key=lambda shot: shot.quality())
+            total_dist = best_shot.white_dist + best_shot.target_dist
+            return best_shot.target, max(min(total_dist / (900 * best_shot.cos_angle), 1), 0.5)
+        else:
+            print("No shots available! Doing a Hail Mary.")
+            return self.hail_mary(), 0.7
+
+    def hail_mary(self):
+        """Aim directly at some ball of the correct color."""
+        for ball in self.balls[self.goal_color]:
+            if self._is_clear(self.balls["white"], ball, excepts=[self.balls["white"], ball]):
+                return ball
+        return self.balls[self.goal_color][0]
 
     def _is_break(self):
+        # Normally, there's 16 balls.
+        if len(self.all_balls) <= 14:
+            return False
+
         not_near = 0
         for b1 in self.all_balls:
             nearby = 0
@@ -201,12 +226,15 @@ class Player:
             if nearby < 2:
                 not_near += 1
 
-        # TODO: once none detection is implemented, reduce to 2.
-        return not_near < 3
+        return not_near < 2
 
 class Shot:
-    def __init__(self, target, pocket, cos_angle, travel_dist):
+    def __init__(self, target, pocket, cos_angle, white_dist, target_dist):
         self.target = target[0], target[1]
         self.pocket = pocket[0], pocket[1]
         self.cos_angle = cos_angle  # larger is better
-        self.travel_dist = travel_dist
+        self.white_dist = white_dist
+        self.target_dist = target_dist
+
+    def quality(self):
+        return -(self.white_dist + self.target_dist)

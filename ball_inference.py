@@ -109,8 +109,6 @@ class BallClassifier:
     def classify_ball(self, im):
         features = self.__build_features(im)
         prediction = self.alg.predict_proba(features)
-
-        print("gbm prob of stripes: " + str(prediction[0][1]))
         thresh_pred = self.__threshold_pred(im)
 
         return int(round(prediction[0][1] * 0.5 + thresh_pred[1] * 0.5))
