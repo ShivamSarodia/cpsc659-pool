@@ -297,7 +297,7 @@ class TableDetector:
         else:
             self.balls["stripes"].append((x, y))
 
-    def display_table_detections(self):
+    def _produce_table_detections(self):
         image_copy = np.copy(self.tableCrop)
 
         if self.pockets:
@@ -318,7 +318,15 @@ class TableDetector:
         for x, y in self.balls["solids"]:
             cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 255))
 
-        self.__display_image_internal(image_copy, title="Table detections")
+        return image_copy
+
+    def display_table_detections(self):
+        img = self._produce_table_detections()
+        self.__display_image_internal(img, title="Table detections")
+
+    def save_table_detections(self, name):
+        img = self._produce_table_detections()
+        cv2.imwrite(name, img)
 
     def display_image(self):
         if self.image_path == None:
@@ -369,7 +377,7 @@ class TableDetector:
 
 def main():
     td = TableDetector()
-    td.load_image("screenshots/screenshot_1591214887.png")
+    td.load_image("screenshots/screenshot_2431067444.png")
     td.detect_all()
     print(len(td.balls["stripes"]))
     print(len(td.balls["solids"]))

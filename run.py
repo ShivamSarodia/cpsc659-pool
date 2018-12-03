@@ -31,9 +31,13 @@ while True:
     td.load_image(screenshot)
     td.detect_all()
     td.remove_nondup_balls(prelim_td.balls)
+    detections_img = screenshot.split('.')[0] + '-detections.png'
+    td.save_table_detections(detections_img)
+    print(f"Detections: {detections_img}")
 
     player = Player(td.tableSize, td.pockets, td.balls, td.ballRadius, args.color)
     target, force = player.get_shot()
+    print(f"Aiming at {target} with force {force}.")
 
     controller = GameController(td.tableSize, td.tableCropTopLeft, td.balls, td.ballRadius)
     controller.make_shot(target, force)
