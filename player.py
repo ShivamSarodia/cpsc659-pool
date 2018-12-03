@@ -33,8 +33,9 @@ class Player:
                 y -= pocket_offset
             self.pocket_targets[l] = (x,y)
 
-        self.MIN_COS_ANGLE = -0.2
-        self.MAX_MID_POCKET_RATIO = 0.6
+        self.MIN_DIRECT_COS_ANGLE = -0.2
+        self.MIN_REBOUND_COS_ANGLE = -0.7
+        self.MAX_MID_POCKET_RATIO = 0.7
         self.COLLISION_RANGE = 2.1
 
     def _is_same_ball(self, b1, b2):
@@ -71,7 +72,7 @@ class Player:
                 continue
 
             rot_ball = rotation.dot(np.array(ball))
-            if min(rot_start[1], rot_end[1]) <= rot_ball[1] <= max(rot_start[1], rot_end[1]):
+            if min(rot_start[1], rot_end[1]) - self.ball_radius <= rot_ball[1] <= max(rot_start[1], rot_end[1]) + self.ball_radius:
                 dist = np.abs(rot_ball[0] - rot_start[0])
                 min_dist = min(dist, min_dist)
 
@@ -125,7 +126,7 @@ class Player:
         """
         Compute if any rebound shots exist
         """
-        shifted_edges = [(0, self.ball_radius), (0, self.table_size[1]-self.ball_radius), (self.ball_radius, 0), (self.table_size[0]-self.ball_radius, 0)]
+        shifted_edges = [(0, 4+self.ball_radius), (0, self.table_size[1]-2-self.ball_radius), (self.ball_radius+3, 0), (self.table_size[0]-self.ball_radius-2, 0)]
 
         shots = []
         for edge in shifted_edges:
@@ -139,7 +140,7 @@ class Player:
                 reflection = (2*edge[0]-target[0], target[1])
                 incidence_point = self._get_reflection_point(cue, reflection, 'v', edge[0])
 
-            if self._is_clear(cue, incidence_point, [cue, target_ball]) and self._is_clear(incidence_point, target, [cue, target_ball]):
+            if incidence_point and self._is_clear(cue, incidence_point, [cue]) and self._is_clear(incidence_point, target, [cue, target_ball]):
                 shots.append(incidence_point)
 
         return shots
@@ -164,59 +165,84 @@ class Player:
         if not self._is_clear(ball, pocket, [cue, ball]):
             return None
 
-        unit_towards_target = (ball - pocket[0]) / np.linalg.norm(ball - pocket[0])
-        target = ball + 2 * self.ball_radius * unit_towards_target
+        unit_towards_target = (ball - pocket) / np.linalg.norm(ball - pocket)
+        target_near_ball = ball + 2 * self.ball_radius * unit_towards_target
 
         # get reflection shots (if any)
-        reflection_targets = self._rebound_shots(cue, target, ball)
-        possible_targets = [(pocket, 'direct')]
+        reflection_targets = self._rebound_shots(cue, target_near_ball, ball)
+        possible_targets = [(target_near_ball, 'direct')]
         for rebound_target in reflection_targets:
             possible_targets.append((rebound_target, 'rebound'))
 
         shots = []
         for final_target in possible_targets:
             # Compute target position for cue ball
-            if final_target[1] == 'direct':
-                target = final_target[0]
-                white_dist = np.linalg.norm(cue - target)
+            target = np.array(final_target[0])
 
+            if final_target[1] == 'direct':
                 if not self._is_clear(cue, target, [cue, ball]):
                     return None
+
+                white_dist = np.linalg.norm(cue - target)
+                v1 = cue - target
+                v2 = pocket - target
             else:
-                target = final_target[0]
-                white_dist = 100 * (np.linalg.norm(cue - target) + np.linalg.norm(target - ball))
+                white_dist = (np.linalg.norm(cue - target) + np.linalg.norm(target - ball))
+                v1 = target - target_near_ball
+                v2 = pocket - target_near_ball
 
             # Compute quality of angle from cue ball to target
-            v1 = cue - target
-            v2 = pocket - target
             cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-
-            if final_target[1] == 'direct' and cos_angle > self.MIN_COS_ANGLE:
+            if cos_angle > self.MIN_DIRECT_COS_ANGLE and final_target[1] == 'direct':
+                continue
+            if cos_angle > self.MIN_REBOUND_COS_ANGLE and final_target[1] == 'rebound':
                 continue
 
-            shots.append(Shot(target, pocket, -cos_angle, white_dist, np.linalg.norm(pocket - ball)))
+            shot_params = {
+                "target": target,
+                "pocket": pocket,
+                "second_target": target_near_ball,
+                "white_travel_dist": white_dist,
+                "target_travel_dist": np.linalg.norm(pocket - ball),
+                "cos_angle": -cos_angle,
+            }
+            if final_target[1] == "direct":
+                shot_params["second_target"] = None
+            shots.append(Shot(**shot_params))
         return shots
 
-    def get_shot(self):
+    def get_shot(self, flex=False):
         if self._is_break():
-            print("Breaking...")
-            return (self.table_size[0] / 2, 0), 1
+            shot_params = {
+                "target": (self.table_size[0] / 2, 0),
+                "is_break": True
+            }
+            return Shot(**shot_params)
 
         shots = self._get_shots()
         if shots:
-            best_shot = max(shots, key=lambda shot: shot.quality())
-            total_dist = best_shot.white_dist + best_shot.target_dist
-            return best_shot.target, max(min(total_dist / (900 * best_shot.cos_angle), 1), 0.5)
+            return max(shots, key=lambda shot: shot.quality(flex=flex))
         else:
-            print("No shots available! Doing a Hail Mary.")
-            return self.hail_mary(), 0.7
+            return self.hail_mary()
 
     def hail_mary(self):
         """Aim directly at some ball of the correct color."""
-        for ball in self.balls[self.goal_color]:
+        if self.goal_color == "black":
+            target_balls = [self.balls["black"]]
+        elif self.goal_color is None:
+            target_balls = self.balls["stripes"] + self.balls["solids"]
+        else:
+            target_balls = self.balls[self.goal_color]
+
+        for ball in target_balls:
             if self._is_clear(self.balls["white"], ball, excepts=[self.balls["white"], ball]):
-                return ball
-        return self.balls[self.goal_color][0]
+                break
+
+        shot_params = {
+            "target": ball,
+            "is_hail_mary": True
+        }
+        return Shot(**shot_params)
 
     def _is_break(self):
         # Normally, there's 16 balls.
@@ -236,12 +262,87 @@ class Player:
         return not_near < 2
 
 class Shot:
-    def __init__(self, target, pocket, cos_angle, white_dist, target_dist):
-        self.target = target[0], target[1]
-        self.pocket = pocket[0], pocket[1]
-        self.cos_angle = cos_angle  # larger is better
-        self.white_dist = white_dist
-        self.target_dist = target_dist
+    def __init__(self, target, pocket=None, second_target=None, white_travel_dist=None, target_travel_dist=None, cos_angle=None, is_hail_mary=False, is_break=False):
+        # The point to aim the white ball at.
+        if target is not None:
+            self.target = target[0], target[1]
+        else:
+            self.target = None
 
-    def quality(self):
-        return -(self.white_dist + self.target_dist)
+        # The pocket at which the ball is being launched.
+        if pocket is not None:
+            self.pocket = pocket[0], pocket[1]
+        else:
+            self.pocket = None
+
+        # If this is a rebound shot, the point near the target ball
+        # the white ball should bounce to. Otherwise, set to None.
+        self.second_target = second_target
+
+        # Distance white ball travels before reaching target ball.
+        self.white_travel_dist = white_travel_dist
+
+        # Distance target ball travels before reaching pocket.
+        self.target_travel_dist = target_travel_dist
+
+        # Negative cos(theta) of angle between white ball and target path. Larger is better.
+        self.cos_angle = cos_angle 
+
+        # True if this is a hail mary shot.
+        self.is_hail_mary = is_hail_mary
+
+        # True if this is a break.
+        self.is_break = is_break
+
+    def force(self):
+        if self.is_hail_mary:
+            return 0.7
+        if self.is_break:
+            return 1
+            
+        if self.second_target is None:
+            dist_factor = (self.white_travel_dist + self.target_travel_dist) / 900
+        else:
+            dist_factor = (self.white_travel_dist / 2 + self.target_travel_dist) / 900
+
+        force = dist_factor / self.cos_angle
+        if force > 1:
+            return 1
+        elif force < 0.5:
+            return 0.5
+        else:
+            return force
+
+    def quality(self, flex=False):
+        print("---------------------------------")
+
+        if self.is_hail_mary:
+            return -10000
+
+        if self.is_break:
+            return 0
+
+        qualities = []
+        if self.second_target is not None:
+            # If we're flexing, improve weight on bounce shots.
+            if flex:
+                qualities.append(3000)
+            else:
+                qualities.append(-1500)
+            print(f"Rebound shot quality: {qualities[-1]}")
+
+        if self.second_target is not None:
+            # Reduce white travel cost for rebound shots.
+            qualities.append(-self.white_travel_dist / 2)
+        else:
+            qualities.append(-self.white_travel_dist)
+        print(f"White travel quality: {qualities[-1]}")
+
+        qualities.append(-4 * self.target_travel_dist)
+        print(f"Target travel quality: {qualities[-1]}")
+
+        qualities.append(self.cos_angle * 1800)
+        print(f"Cos angle quality: {qualities[-1]}")
+
+        print(f"Total quality: {sum(qualities)}")
+        return sum(qualities)

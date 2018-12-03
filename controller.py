@@ -22,7 +22,7 @@ class GameController:
         self.ball_radius = ball_radius
 
     @staticmethod
-    def get_screen_image(dir="screenshots/"):
+    def get_screen_image(dir="screenshots"):
         """Return filename of a PNG containing current screen contents."""
         screenshot_name = dir + "/screenshot_" + str(random.randint(0, 1e10)) + ".png"
 
@@ -39,22 +39,28 @@ class GameController:
         adj_end = ((end_x + self.crop_offset[0]) / 2,
                    (end_y + self.crop_offset[1]) / 2)
 
-        autopy.mouse.move(*adj_start)
-        time.sleep(0.5)
+        autopy.mouse.move(*adj_end)
         autopy.mouse.click()
-        time.sleep(0.2)
+        time.sleep(1)
+        autopy.mouse.smooth_move(*adj_start)
         autopy.mouse.toggle(None, True)
-        time.sleep(0.25)
+        time.sleep(1)
         autopy.mouse.smooth_move(*adj_end)
-        time.sleep(0.5)
+        time.sleep(1)
         autopy.mouse.toggle(None, False)
-        time.sleep(0.5)
+        time.sleep(1)
 
     def move_mouse(self, point):                   
         autopy.mouse.move(
+            (point[0] + 5 + self.crop_offset[0]) / 2,
+            (point[1] + 5 + self.crop_offset[1]) / 2)
+        time.sleep(0.25)
+        autopy.mouse.click()
+        time.sleep(0.25)
+        autopy.mouse.smooth_move(
             (point[0] + self.crop_offset[0]) / 2,
             (point[1] + self.crop_offset[1]) / 2)
-        time.sleep(0.5)
+        time.sleep(0.25)
 
     def _get_edge_intersections(self, target):
         slope = (target[1] - self.cue_coords[1]) / (target[0] - self.cue_coords[0])
