@@ -121,7 +121,7 @@ class Player:
 
         return None
 
-    def _rebound_shots(self, cue, target):
+    def _rebound_shots(self, cue, target, target_ball):
         """
         Compute if any rebound shots exist
         """
@@ -139,7 +139,7 @@ class Player:
                 reflection = (2*edge[0]-target[0], target[1])
                 incidence_point = self._get_reflection_point(cue, reflection, 'v', edge[0])
 
-            if self._is_clear(cue, incidence_point, [cue]) and self._is_clear(incidence_point, target, [cue, target]):
+            if self._is_clear(cue, incidence_point, [cue, target_ball]) and self._is_clear(incidence_point, target, [cue, target_ball]):
                 shots.append(incidence_point)
 
         return shots
@@ -164,8 +164,11 @@ class Player:
         if not self._is_clear(ball, pocket, [cue, ball]):
             return None
 
+        unit_towards_target = (ball - pocket[0]) / np.linalg.norm(ball - pocket[0])
+        target = ball + 2 * self.ball_radius * unit_towards_target
+
         # get reflection shots (if any)
-        reflection_targets = self._rebound_shots(cue, ball)
+        reflection_targets = self._rebound_shots(cue, target, ball)
         possible_targets = [(pocket, 'direct')]
         for rebound_target in reflection_targets:
             possible_targets.append((rebound_target, 'rebound'))
@@ -174,8 +177,7 @@ class Player:
         for final_target in possible_targets:
             # Compute target position for cue ball
             if final_target[1] == 'direct':
-                unit_towards_target = (ball - final_target[0]) / np.linalg.norm(ball - final_target[0])
-                target = ball + 2 * self.ball_radius * unit_towards_target
+                target = final_target[0]
                 white_dist = np.linalg.norm(cue - target)
 
                 if not self._is_clear(cue, target, [cue, ball]):
