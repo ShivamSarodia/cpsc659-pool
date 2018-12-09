@@ -167,7 +167,7 @@ def threshold_model_fit(train_input, train_target):
     # break
     print(max_white_pix)
 
-def modelfit(alg, train_input, train_target, val_input, val_target, additionalPreds=None, performCV=False, printFeatureImportance=False, cv_folds=5):
+def modelfit(alg, train_input, train_target, val_input, val_target, test_input, test_target, add_preds_val=None, add_preds_test=None, performCV=False, printFeatureImportance=False, cv_folds=5):
     #Fit the algorithm on the data
     alg.fit(train_input, train_target)
 
@@ -175,15 +175,22 @@ def modelfit(alg, train_input, train_target, val_input, val_target, additionalPr
     dtrain_predictions = alg.predict(train_input)
     # dtrain_predprob = alg.predict_proba(train_input)[:,1]
 
-    probs = alg.predict_proba(val_input)
-    print(probs)
-    val_predictions = alg.predict(val_input)
+    probs_val = alg.predict_proba(val_input)
+    probs_test = alg.predict_proba(test_input)
 
-    if additionalPreds:
+    val_predictions = alg.predict(val_input)
+    test_predictions = alg.predict(test_input)
+
+    if add_preds_val:
         val_predictions = []
-        for idx, prob in enumerate(probs):
-            val_predictions.append(int(round(0.5*prob[1] + 0.5*additionalPreds[idx][1])))
+        for idx, prob in enumerate(probs_val):
+            val_predictions.append(int(round(0.5*prob[1] + 0.5*add_preds_val[idx][1])))
         val_predictions = np.array(val_predictions)
+
+        test_predictions = []
+        for idx, prob in enumerate(probs_test):
+            test_predictions.append(int(round(0.5*prob[1] + 0.5*add_preds_test[idx][1])))
+        test_predictions = np.array(test_predictions)
     #Perform cross-validation:
     #if performCV:
     #    cv_score = cross_validation.cross_val_score(alg, train_input, train_target, cv=cv_folds, scoring='roc_auc')
@@ -192,6 +199,7 @@ def modelfit(alg, train_input, train_target, val_input, val_target, additionalPr
     print("\nModel Report")
     print("Train Accuracy : %.4g" % metrics.accuracy_score(train_target, dtrain_predictions))
     print("Validation Accuracy : %.4g" % metrics.accuracy_score(val_target, val_predictions))
+    print("Test Accuracy : %.4g" % metrics.accuracy_score(test_target, test_predictions))
     # print "AUC Score (Train): %f" % metrics.roc_auc_score(train_target, dtrain_predprob)
 
     #if performCV:
@@ -217,9 +225,14 @@ def main():
         im.close()
 
     targets = np.array([int(label[1]) for label in labels])
-    train_input, train_target, test_input, test_target = split_train_test(np.array(images), targets)
-    threshold_preds = threshold_predict(test_input)
+    train_val_input, train_val_target, test_input, test_target = split_train_test(np.array(images), targets)
+    train_input, train_target, val_input, val_target = split_train_test(train_val_input, train_val_target)
+
+    threshold_preds_test = threshold_predict(test_input)
+    threshold_preds_val = threshold_predict(val_input)
+
     train_input = np.array([np.hstack([fd_histogram(image), fd_haralick(image), fd_hu_moments(image)]) for image in train_input])
+    val_input = np.array([np.hstack([fd_histogram(image), fd_haralick(image), fd_hu_moments(image)]) for image in val_input])
     test_input = np.array([np.hstack([fd_histogram(image), fd_haralick(image), fd_hu_moments(image)]) for image in test_input])
     # targets = np.eye(2)[targets]
     # global_features = np.array([np.hstack([fd_histogram(image), fd_haralick(image), fd_hu_moments(image)]) for image in images])
@@ -227,20 +240,22 @@ def main():
 
     scaler = StandardScaler()
     train_input = scaler.fit_transform(train_input)
+    val_input = scaler.transform(val_input)
     test_input = scaler.transform(test_input)
 
     #train_input = train_input.reshape((train_input.shape[0], -1))
     #test_input = test_input.reshape((test_input.shape[0], -1))
 
-    gbm0 = GradientBoostingClassifier(n_estimators = 50, max_depth = 3, random_state=10)
+    gbm0 = GradientBoostingClassifier(n_estimators = 10, max_depth = 3, random_state=10)
     # svm_clf = SVC(kernel='poly', degree=4, gamma='auto')
-    modelfit(gbm0, train_input, train_target, test_input, test_target, threshold_preds)
+    modelfit(gbm0, train_input, train_target, val_input, val_target, test_input, test_target, threshold_preds_val, threshold_preds_test)
     # threshold_model_fit(train_input, train_target)
     # cnn_model(train_input, train_target, test_input, test_target, 2)
-    dump(scaler, 'ball_classification_norm_params.joblib')
-    dump(gbm0, 'ball_classification_gbm.joblib')
+    # dump(scaler, 'ball_classification_norm_params.joblib')
+    # dump(gbm0, 'ball_classification_gbm.joblib')
 
     print(train_input.shape)
+    print(val_input.shape)
     print(test_input.shape)
 
 if __name__ == '__main__':
