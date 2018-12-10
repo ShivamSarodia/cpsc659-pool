@@ -315,7 +315,7 @@ class Shot:
         if self.second_target is None:
             dist_factor = (self.white_travel_dist + self.target_travel_dist) / 1800
         else:
-            dist_factor = (self.white_travel_dist / 2 + self.target_travel_dist) / 1800 + 0.2 * self.cos_angle ** 2
+            dist_factor = (self.white_travel_dist + self.target_travel_dist) / 1800 + 0.2 * self.cos_angle ** 2
 
         return dist_factor / self.cos_angle ** 2
 

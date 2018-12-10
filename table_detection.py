@@ -306,17 +306,17 @@ class TableDetector:
 
         if "white" in self.balls:
             x, y = self.balls["white"]
-            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 0))
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 0), thickness=3)
 
         if "black" in self.balls:
             x, y = self.balls["black"]
-            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (255, 255, 255))
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (255, 255, 255), thickness=3)
 
         for x, y in self.balls["stripes"]:
-            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (255, 0, 0))
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (255, 0, 0), thickness=3)
 
         for x, y in self.balls["solids"]:
-            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 255))
+            cv2.circle(image_copy, (int(x), int(y)), int(self.ballRadius), (0, 0, 255), thickness=3)
 
         return image_copy
 
